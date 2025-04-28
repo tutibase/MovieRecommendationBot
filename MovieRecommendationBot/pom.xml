@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>ru.spbstu</groupId>
@@ -50,6 +50,41 @@
         </executions>
       </plugin>
 
+      <!-- Maven JOOQ-codegen Plugin -->
+      <plugin>
+        <groupId>org.jooq</groupId>
+        <artifactId>jooq-codegen-maven</artifactId>
+        <version>3.16.5</version>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <jdbc>
+            <driver>org.postgresql.Driver</driver>
+            <url>jdbc:postgresql://localhost:5432/users_db</url>
+            <user>postgres</user>
+            <password>password</password>
+          </jdbc>
+          <generator>
+            <database>
+              <name>org.jooq.meta.postgres.PostgresDatabase</name>
+              <includes>.*</includes>
+              <inputSchema>public</inputSchema>
+            </database>
+            <target>
+              <packageName>ru.spbstu.movierecbot.dbClasses</packageName>
+              <directory>src/main/java</directory>
+            </target>
+          </generator>
+        </configuration>
+      </plugin>
+
+
     </plugins>
 
     <resources>
@@ -97,6 +132,21 @@
       <version>42.7.2</version>
     </dependency>
 
+    <!-- Spring JDBC -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-jdbc</artifactId>
+      <version>5.3.29</version>
+    </dependency>
+
+
+    <!-- HikariCP -->
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+      <version>5.0.1</version>
+    </dependency>
+
     <!-- Telegram Bots API -->
     <dependency>
       <groupId>org.telegram</groupId>
@@ -120,6 +170,12 @@
     </dependency>
 
     <!-- logs -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.7</version>
+    </dependency>
+
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
