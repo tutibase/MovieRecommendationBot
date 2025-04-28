@@ -1,38 +1,39 @@
 package ru.spbstu.movierecbot;
 
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.netty.http.server.HttpServer;
+import ru.spbstu.movierecbot.config.AppConfig;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 
-@Configuration
-@ComponentScan(basePackages = "ru.spbstu.movierecbot")
 public class App {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
 
-        // Роутер для /healthcheck
+        // Создаем роутер
         RouterFunction<ServerResponse> router = route(
                 GET("/healthcheck"),
                 request -> ServerResponse.ok().bodyValue("Server is running!\n1. Bogdanova\n2. Lugovenko\n3. Yakunin")
         );
 
+        // Конвертируем роутер в HttpHandler
         HttpHandler httpHandler = RouterFunctions.toHttpHandler(router);
-        var adapter = new ReactorHttpHandlerAdapter(httpHandler);
+
+        // Запускаем сервер
         HttpServer.create()
                 .host("localhost")
                 .port(8110)
-                .handle(adapter)
-                .bindNow();
+                .handle(new ReactorHttpHandlerAdapter(httpHandler))
+                .bindNow()
+                .onDispose()
+                .block();
 
         System.out.println("Server started on http://localhost:8110");
-
-        Thread.currentThread().join(); // будет работать до ручной остановки
     }
 }
