@@ -1,0 +1,53 @@
+package ru.spbstu.movierecbot.dao.impl;
+
+import org.jooq.DSLContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import ru.spbstu.movierecbot.dao.YearDao;
+import ru.spbstu.movierecbot.dbClasses.tables.records.YearsRecord;
+
+import java.util.List;
+
+import static ru.spbstu.movierecbot.dbClasses.Tables.YEARS;
+
+public class YearDaoImpl implements YearDao {
+
+    private final DSLContext dslContext;
+
+    @Autowired
+    public YearDaoImpl(DSLContext dslContext) {
+        this.dslContext = dslContext;
+    }
+
+    @Override
+    public int addYear(int telegramId, int year) {
+        boolean exists = dslContext.fetchExists(
+                dslContext.selectFrom(YEARS)
+                        .where(YEARS.TELEGRAM_ID.eq(telegramId))
+                        .and(YEARS.VALUE.eq(year))
+        );
+
+        if (!exists) {
+            return dslContext.insertInto(YEARS)
+                    .set(YEARS.TELEGRAM_ID, telegramId)
+                    .set(YEARS.VALUE, year)
+                    .execute();
+        }
+        return 0;
+    }
+
+    @Override
+    public List<YearsRecord> getYearsByTelegramId(int telegramId) {
+        return dslContext.selectFrom(YEARS)
+                .where(YEARS.TELEGRAM_ID.eq(telegramId))
+                .orderBy(YEARS.VALUE.asc())
+                .fetchInto(YearsRecord.class);
+    }
+
+    @Override
+    public int deleteYear(int telegramId, int year) {
+        return dslContext.deleteFrom(YEARS)
+                .where(YEARS.TELEGRAM_ID.eq(telegramId))
+                .and(YEARS.VALUE.eq(year))
+                .execute();
+    }
+}
