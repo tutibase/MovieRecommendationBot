@@ -4,3 +4,4 @@
 .idea/
 src/main/resources/bot.properties
 target/
+/MovieRecommendationBot/src/main/java/ru/spbstu/movierecbot/dbClasses/

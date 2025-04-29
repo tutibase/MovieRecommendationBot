@@ -6,7 +6,10 @@ import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
+
+import static ru.spbstu.movierecbot.dbClasses.tables.Users.USERS;
 
 @Repository
 public class UserDaoImpl implements UserDao {
@@ -20,15 +23,20 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public void createUser(int telegramId) {
-        dslContext.insertInto(Users.USERS)
-                .set(Users.USERS.TELEGRAM_ID, telegramId)
+        dslContext.insertInto(USERS)
+                .set(USERS.TELEGRAM_ID, telegramId)
                 .execute();
     }
 
     @Override
     public Optional<UsersRecord> getUserByTelegramId(int telegramId) {
-        return dslContext.selectFrom(Users.USERS)
-                .where(Users.USERS.TELEGRAM_ID.eq(telegramId))
+        return dslContext.selectFrom(USERS)
+                .where(USERS.TELEGRAM_ID.eq(telegramId))
                 .fetchOptional();
+    }
+
+    @Override
+    public List<UsersRecord> getAllUsers() {
+        return dslContext.selectFrom(USERS).fetch();
     }
 }
