@@ -2,9 +2,6 @@ package ru.spbstu.movierecbot.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.jooq.DSLContext;
-import org.jooq.SQLDialect;
-import org.jooq.impl.DSL;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
@@ -20,10 +17,5 @@ public class DataBaseConfig {
         config.setPassword("password");
         config.setMaximumPoolSize(10);
         return new HikariDataSource(config);
-    }
-
-    @Bean
-    public DSLContext dslContext(DataSource dataSource) {
-        return DSL.using(dataSource, SQLDialect.POSTGRES);
     }
 }
