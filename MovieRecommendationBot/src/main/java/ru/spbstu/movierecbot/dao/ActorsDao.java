@@ -4,9 +4,9 @@ import java.util.List;
 
 public interface ActorsDao {
     //Добавление актера
-    int addActor(int telegramId, String fullName);
+    int addActor(long telegramId, String fullName);
     //Получение списка актеров
-    List<ActorsRecord> getActorsByTelegramId(int telegramId);
+    List<ActorsRecord> getActorsByTelegramId(long telegramId);
     //Удаление актера
-    int deleteActor(int telegramId, String fullName);
+    int deleteActor(long telegramId, String fullName);
 }

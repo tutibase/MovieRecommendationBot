@@ -24,7 +24,7 @@ public class WatchListDaoImpl implements WatchListDao {
 
 
     @Override
-    public int addToWatchlist(int telegramId, int filmId, String title) {
+    public int addToWatchlist(long telegramId, int filmId, String title) {
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(WATCH_LIST)
                 .where(WATCH_LIST.TELEGRAM_ID.eq(telegramId))
@@ -41,14 +41,14 @@ public class WatchListDaoImpl implements WatchListDao {
 
 
     @Override
-    public List<WatchListRecord> getWatchlistByTelegramId(int telegramId) {
+    public List<WatchListRecord> getWatchlistByTelegramId(long telegramId) {
         return dslContext.selectFrom(WATCH_LIST)
                 .where(WATCH_LIST.TELEGRAM_ID.eq(telegramId))
                 .fetch();
     }
 
     @Override
-    public int deleteFromWatchList(int telegramId, int filmId) {
+    public int deleteFromWatchList(long telegramId, int filmId) {
         return dslContext.deleteFrom(WATCH_LIST)
                 .where(WATCH_LIST.TELEGRAM_ID.eq(telegramId))
                 .and(WATCH_LIST.FILM_ID.eq(filmId))

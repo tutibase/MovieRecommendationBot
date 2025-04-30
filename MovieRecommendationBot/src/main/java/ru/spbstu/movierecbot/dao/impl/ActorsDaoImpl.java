@@ -19,7 +19,7 @@ public class ActorsDaoImpl implements ActorsDao {
     }
 
     @Override
-    public int addActor(int telegramId, String fullName){
+    public int addActor(long telegramId, String fullName){
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(ACTORS)
                         .where(ACTORS.TELEGRAM_ID.eq(telegramId))
@@ -34,14 +34,14 @@ public class ActorsDaoImpl implements ActorsDao {
     }
 
     @Override
-    public List<ActorsRecord> getActorsByTelegramId(int telegramId) {
+    public List<ActorsRecord> getActorsByTelegramId(long telegramId) {
         return dslContext.selectFrom(ACTORS)
                 .where(ACTORS.TELEGRAM_ID.eq(telegramId))
                 .fetch();
     }
 
     @Override
-    public int deleteActor(int telegramId, String fullName) {
+    public int deleteActor(long telegramId, String fullName) {
         return dslContext.deleteFrom(ACTORS)
                 .where(ACTORS.TELEGRAM_ID.eq(telegramId))
                 .and(ACTORS.FULL_NAME.eq(fullName))

@@ -19,7 +19,7 @@ public class CountriesDaoImpl implements CountriesDao {
     }
 
     @Override
-    public int addCountry(int telegramId, String countryName) {
+    public int addCountry(long telegramId, String countryName) {
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(COUNTRIES)
                         .where(COUNTRIES.TELEGRAM_ID.eq(telegramId))
@@ -35,14 +35,14 @@ public class CountriesDaoImpl implements CountriesDao {
     }
 
     @Override
-    public List<CountriesRecord> getCountriesByTelegramId(int telegramId) {
+    public List<CountriesRecord> getCountriesByTelegramId(long telegramId) {
         return dslContext.selectFrom(COUNTRIES)
                 .where(COUNTRIES.TELEGRAM_ID.eq(telegramId))
                 .fetch();
     }
 
     @Override
-    public int deleteCountry(int telegramId, String countryName) {
+    public int deleteCountry(long telegramId, String countryName) {
         return dslContext.deleteFrom(COUNTRIES)
                 .where(COUNTRIES.TELEGRAM_ID.eq(telegramId))
                 .and(COUNTRIES.NAME.eq(countryName))

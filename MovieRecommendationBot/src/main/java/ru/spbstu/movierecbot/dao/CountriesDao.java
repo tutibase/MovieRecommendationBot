@@ -6,9 +6,9 @@ import java.util.List;
 
 public interface CountriesDao {
     //Добавление страны
-    int addCountry(int telegramId, String countryName);
+    int addCountry(long telegramId, String countryName);
     //Получение списка стран
-    List<CountriesRecord> getCountriesByTelegramId(int telegramId);
+    List<CountriesRecord> getCountriesByTelegramId(long telegramId);
     //Удаление страны
-    int deleteCountry(int telegramId, String countryName);
+    int deleteCountry(long telegramId, String countryName);
 }
