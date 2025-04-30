@@ -4,7 +4,6 @@ import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import ru.spbstu.movierecbot.dao.ActorsDao;
-import ru.spbstu.movierecbot.dbClasses.tables.Actors;
 import ru.spbstu.movierecbot.dbClasses.tables.records.ActorsRecord;
 import java.util.List;
 import static ru.spbstu.movierecbot.dbClasses.tables.Actors.ACTORS;
