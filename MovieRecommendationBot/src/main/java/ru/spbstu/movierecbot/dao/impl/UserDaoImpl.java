@@ -19,14 +19,14 @@ public class UserDaoImpl implements UserDao {
     }
 
     @Override
-    public void createUser(int telegramId) {
+    public void createUser(long telegramId) {
         dslContext.insertInto(Users.USERS)
                 .set(Users.USERS.TELEGRAM_ID, telegramId)
                 .execute();
     }
 
     @Override
-    public Optional<UsersRecord> getUserByTelegramId(int telegramId) {
+    public Optional<UsersRecord> getUserByTelegramId(long telegramId) {
         return dslContext.selectFrom(Users.USERS)
                 .where(Users.USERS.TELEGRAM_ID.eq(telegramId))
                 .fetchOptional();

@@ -9,12 +9,12 @@ import java.util.List;
 public interface YearDao {
 
     //Добавление года в предпочтения
-    int addYear(int telegramId, int year);
+    int addYear(long telegramId, int year);
 
     //Получение всех годов из предпочтений пользователя
-    List<YearsRecord> getYearsByTelegramId(int telegramId);
+    List<YearsRecord> getYearsByTelegramId(long telegramId);
 
     //Удаление предпочтения по годам
-    int deleteYear(int telegramID, int year);
+    int deleteYear(long telegramID, int year);
 
 }

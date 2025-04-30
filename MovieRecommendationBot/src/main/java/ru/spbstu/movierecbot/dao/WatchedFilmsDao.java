@@ -5,18 +5,18 @@ import java.util.List;
 
 public interface WatchedFilmsDao {
     //Добавление фильма по telegramId пользователя
-    int addWatchedFilm(int telegramId, int filmId, String title);
+    int addWatchedFilm(long telegramId, int filmId, String title);
 
     //Получение фильмов за весь период по telegramId пользователя
-    List<WatchedFilmsRecord> getWatchedFilmsByAllPeriod(int telegramId);
+    List<WatchedFilmsRecord> getWatchedFilmsByAllPeriod(long telegramId);
 
     //Получение фильмов за конкретный период по telegramId пользователя(start - начало периода, end - конец)
-    List<WatchedFilmsRecord> getWatchedFilmsByExactPeriod(int telegramId, LocalDate start, LocalDate end);
+    List<WatchedFilmsRecord> getWatchedFilmsByExactPeriod(long telegramId, LocalDate start, LocalDate end);
 
     //Добавление оценки фильму
-    void addMarkToFilm(int telegramId, int filmId, int mark);
+    void addMarkToFilm(long telegramId, int filmId, int mark);
 
     //Добавление текстового отзыва фильму
-    void addReviewToFilm(int telegramId, int filmId, String review);
+    void addReviewToFilm(long telegramId, int filmId, String review);
 
 }

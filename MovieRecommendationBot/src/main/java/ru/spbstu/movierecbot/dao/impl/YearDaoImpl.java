@@ -19,7 +19,7 @@ public class YearDaoImpl implements YearDao {
     }
 
     @Override
-    public int addYear(int telegramId, int year) {
+    public int addYear(long telegramId, int year) {
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(YEARS)
                         .where(YEARS.TELEGRAM_ID.eq(telegramId))
@@ -36,7 +36,7 @@ public class YearDaoImpl implements YearDao {
     }
 
     @Override
-    public List<YearsRecord> getYearsByTelegramId(int telegramId) {
+    public List<YearsRecord> getYearsByTelegramId(long telegramId) {
         return dslContext.selectFrom(YEARS)
                 .where(YEARS.TELEGRAM_ID.eq(telegramId))
                 .orderBy(YEARS.VALUE.asc())
@@ -44,7 +44,7 @@ public class YearDaoImpl implements YearDao {
     }
 
     @Override
-    public int deleteYear(int telegramId, int year) {
+    public int deleteYear(long telegramId, int year) {
         return dslContext.deleteFrom(YEARS)
                 .where(YEARS.TELEGRAM_ID.eq(telegramId))
                 .and(YEARS.VALUE.eq(year))

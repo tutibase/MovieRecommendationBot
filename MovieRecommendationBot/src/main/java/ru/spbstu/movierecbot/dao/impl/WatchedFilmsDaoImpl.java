@@ -19,7 +19,7 @@ public class WatchedFilmsDaoImpl implements WatchedFilmsDao {
     }
 
     @Override
-    public int addWatchedFilm(int telegramId, int filmId, String title) {
+    public int addWatchedFilm(long telegramId, int filmId, String title) {
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(WATCHED_FILMS)
                         .where(WATCHED_FILMS.TELEGRAM_ID.eq(telegramId))
@@ -37,7 +37,7 @@ public class WatchedFilmsDaoImpl implements WatchedFilmsDao {
     }
 
     @Override
-    public List<WatchedFilmsRecord> getWatchedFilmsByAllPeriod(int telegramId) {
+    public List<WatchedFilmsRecord> getWatchedFilmsByAllPeriod(long telegramId) {
         return dslContext.selectFrom(WATCHED_FILMS)
                 .where(WATCHED_FILMS.TELEGRAM_ID.eq(telegramId))
                 .orderBy(WATCHED_FILMS.CREATED_AT.desc())
@@ -45,7 +45,7 @@ public class WatchedFilmsDaoImpl implements WatchedFilmsDao {
     }
 
     @Override
-    public List<WatchedFilmsRecord> getWatchedFilmsByExactPeriod(int telegramId, LocalDate start, LocalDate end) {
+    public List<WatchedFilmsRecord> getWatchedFilmsByExactPeriod(long telegramId, LocalDate start, LocalDate end) {
         return dslContext.selectFrom(WATCHED_FILMS)
                 .where(WATCHED_FILMS.TELEGRAM_ID.eq(telegramId))
                 .and(WATCHED_FILMS.CREATED_AT.between(start, end))
@@ -54,7 +54,7 @@ public class WatchedFilmsDaoImpl implements WatchedFilmsDao {
     }
 
     @Override
-    public void addMarkToFilm(int telegramId, int filmId, int mark) {
+    public void addMarkToFilm(long telegramId, int filmId, int mark) {
         dslContext.update(WATCHED_FILMS)
                 .set(WATCHED_FILMS.RATING, mark)
                 .where(WATCHED_FILMS.TELEGRAM_ID.eq(telegramId))
@@ -63,7 +63,7 @@ public class WatchedFilmsDaoImpl implements WatchedFilmsDao {
     }
 
     @Override
-    public void addReviewToFilm(int telegramId, int filmId, String review) {
+    public void addReviewToFilm(long telegramId, int filmId, String review) {
         dslContext.update(WATCHED_FILMS)
                 .set(WATCHED_FILMS.REVIEW, review)
                 .where(WATCHED_FILMS.TELEGRAM_ID.eq(telegramId))

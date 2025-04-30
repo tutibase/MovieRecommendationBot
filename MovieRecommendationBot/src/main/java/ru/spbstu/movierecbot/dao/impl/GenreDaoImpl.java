@@ -18,7 +18,7 @@ public class GenreDaoImpl implements GenreDao {
     }
 
     @Override
-    public int addGenre(int telegramId, String name) {
+    public int addGenre(long telegramId, String name) {
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(GENRES)
                         .where(GENRES.TELEGRAM_ID.eq(telegramId))
@@ -35,7 +35,7 @@ public class GenreDaoImpl implements GenreDao {
     }
 
     @Override
-    public List<GenresRecord> getGenresByTelegramId(int telegramId) {
+    public List<GenresRecord> getGenresByTelegramId(long telegramId) {
         return dslContext.selectFrom(GENRES)
                 .where(GENRES.TELEGRAM_ID.eq(telegramId))
                 .orderBy(GENRES.NAME.asc())
@@ -43,7 +43,7 @@ public class GenreDaoImpl implements GenreDao {
     }
 
     @Override
-    public int deleteGenre(int telegramId, String genre) {
+    public int deleteGenre(long telegramId, String genre) {
         return dslContext.deleteFrom(GENRES)
                 .where(GENRES.TELEGRAM_ID.eq(telegramId))
                 .and(GENRES.NAME.eq(genre))
