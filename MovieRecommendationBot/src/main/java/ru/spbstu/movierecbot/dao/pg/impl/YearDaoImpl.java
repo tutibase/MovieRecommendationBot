@@ -1,8 +1,8 @@
-package ru.spbstu.movierecbot.dao.impl;
+package ru.spbstu.movierecbot.dao.pg.impl;
 
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
-import ru.spbstu.movierecbot.dao.YearDao;
+import ru.spbstu.movierecbot.dao.pg.YearDao;
 import ru.spbstu.movierecbot.dbClasses.tables.records.YearsRecord;
 
 import java.util.List;
