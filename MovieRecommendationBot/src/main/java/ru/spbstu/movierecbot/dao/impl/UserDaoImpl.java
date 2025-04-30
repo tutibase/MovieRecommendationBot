@@ -5,7 +5,6 @@ import ru.spbstu.movierecbot.dbClasses.tables.records.UsersRecord;
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -22,10 +21,18 @@ public class UserDaoImpl implements UserDao {
     }
 
     @Override
-    public void createUser(long telegramId) {
-        dslContext.insertInto(Users.USERS)
-                .set(Users.USERS.TELEGRAM_ID, telegramId)
-                .execute();
+    public int createUser(long telegramId) {
+        boolean exists = dslContext.fetchExists(
+                dslContext.selectFrom(USERS)
+                        .where(USERS.TELEGRAM_ID.eq(telegramId))
+        );
+        if (!exists){
+            return dslContext.insertInto(USERS)
+                    .set(USERS.TELEGRAM_ID, telegramId)
+                    .execute();
+        }
+        return 0;
+
     }
 
     @Override

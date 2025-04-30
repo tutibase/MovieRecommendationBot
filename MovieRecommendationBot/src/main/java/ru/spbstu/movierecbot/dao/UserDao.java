@@ -7,7 +7,8 @@ import java.util.Optional;
 public interface UserDao {
 
     //Создание нового пользователя
-    void createUser(long telegramId);
+    int createUser(long telegramId);
+
 
     //Получение пользователя по Telegram ID
     Optional<UsersRecord> getUserByTelegramId(long telegramId);
