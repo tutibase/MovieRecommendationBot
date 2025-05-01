@@ -4,11 +4,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.spbstu.movierecbot.dao.filmapi.FilmDao;
 import ru.spbstu.movierecbot.dto.FilmDto;
+import ru.spbstu.movierecbot.dto.SearchParamsDto;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @Repository
@@ -34,10 +37,8 @@ public class FilmDaoImpl implements FilmDao {
                             .queryParam("limit", 1)
                             .queryParam("id", filmId);
 
-                    // Добавляем каждый selectField как отдельный параметр
-                    for (String field : selectFields) {
-                        builder.queryParam("selectFields", field);
-                    }
+                    // Добавляем selectFields
+                    selectFields.forEach(field -> builder.queryParam("selectFields", field));
 
                     return builder.build();
                 })
@@ -55,6 +56,50 @@ public class FilmDaoImpl implements FilmDao {
     public Mono<FilmDto> getFilmByName(String filmName) {
         return getFilmIdByName(filmName)
                 .flatMap(this::getFilmById);
+    }
+
+    @Override
+    public Flux<FilmDto> getFilmsByParams(SearchParamsDto params) {
+        List<String> selectFields = List.of(
+                "id", "name", "description",
+                "year", "rating", "ageRating", "budget", "movieLength", "genres", "countries",
+                "persons", "fees", "premiere", "similarMovies");
+
+        return kinopoiskWebClient.get()
+                .uri(uriBuilder -> {
+                    UriBuilder builder = uriBuilder.path("/movie")
+                            .queryParam("page", 1)
+                            .queryParam("limit", 5);
+
+                    // Добавляем selectFields
+                    selectFields.forEach(field -> builder.queryParam("selectFields", field));
+
+                    builder.queryParam("type", "movie");
+
+
+                    // Добавляем параметры фильтрации только если они не null
+                    Optional.ofNullable(params.years()).ifPresent(years ->
+                            years.forEach(year -> builder.queryParam("year", year))
+                    );
+                    Optional.ofNullable(params.ratings()).ifPresent(ratings ->
+                            ratings.forEach(rating -> builder.queryParam("rating.kp", rating))
+                    );
+                    Optional.ofNullable(params.movieLength()).ifPresent(length -> builder.queryParam("movieLength", length)
+                    );
+                    Optional.ofNullable(params.genres()).ifPresent(genres ->
+                            genres.forEach(genre -> builder.queryParam("genres.name", genre))
+                    );
+                    Optional.ofNullable(params.countries()).ifPresent(countries ->
+                            countries.forEach(country -> builder.queryParam("countries.name", country))
+                    );
+                    Optional.ofNullable(params.actors()).ifPresent(persons ->
+                            persons.forEach(actor -> builder.queryParam("persons.id", "+" + actor.id()))
+                    );
+                    return builder.build();
+                })
+                .retrieve()
+                .bodyToMono(ApiResponseDto.class)
+                .flatMapMany(response -> Flux.fromIterable(response.films()));
     }
 
     @Override
