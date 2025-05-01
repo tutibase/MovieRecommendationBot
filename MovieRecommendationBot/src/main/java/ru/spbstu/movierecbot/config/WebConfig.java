@@ -1,5 +1,6 @@
 package ru.spbstu.movierecbot.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.codec.ServerCodecConfigurer;
@@ -11,13 +12,20 @@ import org.springframework.web.reactive.config.WebFluxConfigurer;
 public class WebConfig implements WebFluxConfigurer {
 
     @Bean
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.findAndRegisterModules();
+        return mapper;
+    }
+
+    @Bean
     public Jackson2JsonEncoder jsonEncoder() {
-        return new Jackson2JsonEncoder();
+        return new Jackson2JsonEncoder(objectMapper());
     }
 
     @Bean
     public Jackson2JsonDecoder jsonDecoder() {
-        return new Jackson2JsonDecoder();
+        return new Jackson2JsonDecoder(objectMapper());
     }
 
     @Override
