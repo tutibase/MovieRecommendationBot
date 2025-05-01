@@ -161,6 +161,28 @@
       <version>2.15.3</version>
     </dependency>
 
+    <!-- Поддержка параметризованных конструкторов (ParameterNamesModule) -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-parameter-names</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+
+    <!-- Поддержка типов Java 8 -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jdk8</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+
+    <!-- Поддержка типов даты и времени из Java 8 -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+
+
     <!-- Testing (JUnit 5) -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
