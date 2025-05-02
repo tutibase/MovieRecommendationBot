@@ -2,6 +2,7 @@ package ru.spbstu.movierecbot.dao.pg.impl;
 
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
 import ru.spbstu.movierecbot.dao.pg.YearDao;
 import ru.spbstu.movierecbot.dbClasses.tables.records.YearsRecord;
 
@@ -9,6 +10,7 @@ import java.util.List;
 
 import static ru.spbstu.movierecbot.dbClasses.Tables.YEARS;
 
+@Repository
 public class YearDaoImpl implements YearDao {
 
     private final DSLContext dslContext;
