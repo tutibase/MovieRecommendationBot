@@ -17,11 +17,11 @@ public class UserService {
         this.userDao = userDao;
     }
 
-    public void registerUser(int telegramId) {
+    public void registerUser(long telegramId) {
         userDao.createUser(telegramId);
     }
 
-    public Optional<UsersRecord> findUserByTelegramId(int telegramId) {
+    public Optional<UsersRecord> findUserByTelegramId(long telegramId) {
         return userDao.getUserByTelegramId(telegramId);
     }
 

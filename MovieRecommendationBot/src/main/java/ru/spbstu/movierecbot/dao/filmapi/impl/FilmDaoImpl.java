@@ -1,11 +1,11 @@
 package ru.spbstu.movierecbot.dao.filmapi.impl;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Mono;
 import ru.spbstu.movierecbot.dao.filmapi.FilmDao;
-import ru.spbstu.movierecbot.dto.ApiResponseDto;
 import ru.spbstu.movierecbot.dto.FilmDto;
 
 import java.util.List;
@@ -75,4 +75,6 @@ public class FilmDaoImpl implements FilmDao {
                     return Mono.just(apiResponse.films().getFirst().id());
                 });
     }
+
+    public record ApiResponseDto(@JsonProperty("docs") List<FilmDto> films) {}
 }
