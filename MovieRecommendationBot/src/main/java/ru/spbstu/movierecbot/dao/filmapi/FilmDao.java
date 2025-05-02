@@ -9,6 +9,9 @@ public interface FilmDao {
     // Получить инфо о фильме по айди
     Mono<FilmDto> getFilmById(Integer filmId);
 
+    // Получить инфо о случайном фильме
+    Mono<FilmDto> getRandomFilm();
+
     // Получить инфо о фильме по названию
     Mono<FilmDto> getFilmByName(String filmName);
 

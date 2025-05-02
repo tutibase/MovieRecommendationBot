@@ -58,6 +58,35 @@ public class FilmDaoImpl implements FilmDao {
     }
 
     @Override
+    public Mono<FilmDto> getRandomFilm() {
+
+        return kinopoiskWebClient.get()
+                .uri(uriBuilder -> {
+                    UriBuilder builder = uriBuilder.path("/movie/random")
+                            .queryParam("notNullFields", "id")
+                            .queryParam("notNullFields", "name")
+                            .queryParam("notNullFields", "description")
+                            .queryParam("notNullFields", "rating.kp")
+                            .queryParam("rating.kp", "5-10")
+                            .queryParam("genres.name", "!документальный")
+                            .queryParam("type", "movie");
+
+                    return builder.build();
+                })
+                .retrieve()
+                .bodyToMono(FilmDto.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)) // 3 попытки с интервалом 1 сек
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new RuntimeException("Все попытки запроса завершились неудачей" + spec + signal)))
+                .flatMap(response -> {
+                    if (response.id() == null) {
+                        return Mono.error(new RuntimeException("Фильм не найден"));
+                    }
+                    return Mono.just(response);
+                });
+    }
+
+    @Override
     public Mono<FilmDto> getFilmByName(String filmName) {
         return getFilmIdByName(filmName)
                 .flatMap(this::getFilmById);
