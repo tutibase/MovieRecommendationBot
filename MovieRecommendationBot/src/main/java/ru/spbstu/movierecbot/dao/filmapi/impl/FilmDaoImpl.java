@@ -6,10 +6,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import ru.spbstu.movierecbot.dao.filmapi.FilmDao;
 import ru.spbstu.movierecbot.dto.FilmDto;
 import ru.spbstu.movierecbot.dto.SearchParamsDto;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,6 +46,9 @@ public class FilmDaoImpl implements FilmDao {
                 })
                 .retrieve()
                 .bodyToMono(ApiResponseDto.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)) // 3 попытки с интервалом 1 сек
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new RuntimeException("Все попытки запроса завершились неудачей")))
                 .flatMap(response -> {
                     if (response.films().isEmpty()) {
                         return Mono.error(new RuntimeException("Фильм не найден"));
@@ -99,6 +104,9 @@ public class FilmDaoImpl implements FilmDao {
                 })
                 .retrieve()
                 .bodyToMono(ApiResponseDto.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)) // 3 попытки с интервалом 1 сек
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new RuntimeException("Все попытки запроса завершились неудачей")))
                 .flatMapMany(response -> Flux.fromIterable(response.films()));
     }
 
@@ -113,6 +121,9 @@ public class FilmDaoImpl implements FilmDao {
                 .header("accept", "application/json")
                 .retrieve()
                 .bodyToMono(ApiResponseDto.class) // Десериализуем ответ в ApiResponseDto
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)) // 3 попытки с интервалом 1 сек
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new RuntimeException("Все попытки запроса завершились неудачей")))
                 .flatMap(apiResponse -> {
                     if (apiResponse.films() == null || apiResponse.films().isEmpty()) {
                         return Mono.error(new RuntimeException("Фильм не найден"));

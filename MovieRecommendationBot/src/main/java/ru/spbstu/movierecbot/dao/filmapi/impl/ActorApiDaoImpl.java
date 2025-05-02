@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import ru.spbstu.movierecbot.dao.filmapi.ActorApiDao;
 import ru.spbstu.movierecbot.dto.ActorDto;
 
+import java.time.Duration;
 import java.util.List;
 
 @Repository
@@ -29,6 +31,9 @@ public class ActorApiDaoImpl implements ActorApiDao {
                 .header("accept", "application/json")
                 .retrieve()
                 .bodyToMono(ApiResponseDto.class) // Десериализуем ответ в ApiResponseDto
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)) // 3 попытки с интервалом 1 сек
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new RuntimeException("Все попытки запроса завершились неудачей")))
                 .flatMap(apiResponse -> {
                     if (apiResponse.actors() == null || apiResponse.actors().isEmpty()) {
                         return Mono.error(new RuntimeException("Актер не найден"));
