@@ -124,7 +124,8 @@ public class FilmDaoImpl implements FilmDao {
                     Optional.ofNullable(params.ratings()).ifPresent(ratings ->
                             ratings.forEach(rating -> builder.queryParam("rating.kp", rating))
                     );
-                    Optional.ofNullable(params.movieLength()).ifPresent(length -> builder.queryParam("movieLength", length)
+                    Optional.ofNullable(params.movieLength()).ifPresent(lengths ->
+                            lengths.forEach(length -> builder.queryParam("movieLength", length))
                     );
                     Optional.ofNullable(params.genres()).ifPresent(genres ->
                             genres.forEach(genre -> builder.queryParam("genres.name", genre))
@@ -133,7 +134,7 @@ public class FilmDaoImpl implements FilmDao {
                             countries.forEach(country -> builder.queryParam("countries.name", country))
                     );
                     Optional.ofNullable(params.actors()).ifPresent(persons ->
-                            persons.forEach(actor -> builder.queryParam("persons.id", "+" + actor.id()))
+                            persons.forEach(actor -> builder.queryParam("persons.id", "+" + actor))
                     );
                     return builder.build();
                 })
