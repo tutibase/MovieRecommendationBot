@@ -68,6 +68,7 @@ public class FilmDaoImpl implements FilmDao {
                             .queryParam("notNullFields", "description")
                             .queryParam("notNullFields", "rating.kp")
                             .queryParam("rating.kp", "5-10")
+                            .queryParam("notNullFields", "movieLength")
                             .queryParam("genres.name", "!документальный")
                             .queryParam("type", "movie");
 
@@ -103,12 +104,17 @@ public class FilmDaoImpl implements FilmDao {
                 .uri(uriBuilder -> {
                     UriBuilder builder = uriBuilder.path("/movie")
                             .queryParam("page", 1)
-                            .queryParam("limit", 5);
+                            .queryParam("limit", 5)
+                            .queryParam("notNullFields", "id")
+                            .queryParam("notNullFields", "name")
+                            .queryParam("notNullFields", "description")
+                            .queryParam("notNullFields", "rating.kp")
+                            .queryParam("notNullFields", "movieLength")
+                            .queryParam("type", "movie");
 
                     // Добавляем selectFields
                     selectFields.forEach(field -> builder.queryParam("selectFields", field));
 
-                    builder.queryParam("type", "movie");
 
 
                     // Добавляем параметры фильтрации только если они не null

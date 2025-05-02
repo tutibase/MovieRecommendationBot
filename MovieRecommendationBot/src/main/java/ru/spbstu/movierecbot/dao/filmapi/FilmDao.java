@@ -16,7 +16,7 @@ public interface FilmDao {
     Mono<FilmDto> getFilmByName(String filmName);
 
     // Получить инфо о фильмах по фильтрам
-    public Flux<FilmDto> getFilmsByParams(SearchParamsDto params);
+    Flux<FilmDto> getFilmsByParams(SearchParamsDto params);
 
     // Получить айди фильма по его названию
     Mono<Integer> getFilmIdByName(String filmName);
