@@ -116,15 +116,15 @@ public class InfoAboutFilmService {
     public String formatActors(List<String> persons) {
         if (persons == null || persons.isEmpty()) return "—";
         return persons.stream()
-                .map(name -> ("• "  + name))
-                .collect(Collectors.joining("\n"));
+                .map(name -> ( (name==null? "":"• " + name + "\n")))
+                .collect(Collectors.joining(""));
     }
 
     public String formatSimilarFilms(List<String> films) {
         if (films == null || films.isEmpty()) return "—";
         return films.stream()
-                .map(film -> "• " + (film==null? "—": film))
-                .collect(Collectors.joining("\n"));
+                .map(film ->  (film==null? "": "• " + film + "\n"))
+                .collect(Collectors.joining(""));
     }
 
     public String formatType(Boolean type){
