@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+
 public record FilmDto(
         @JsonProperty("id") Integer id,
         @JsonProperty("name") String russianTitle,
@@ -16,7 +17,10 @@ public record FilmDto(
         @JsonProperty("movieLength") int duration,
         @JsonProperty("budget") Budget budget,
         @JsonProperty("fees") Fees fees,
-        @JsonProperty("similarMovies") List<SimilarMovie> similarFilmsData
+        @JsonProperty("similarMovies") List<SimilarMovie> similarFilmsData,
+        @JsonProperty("description") String description,
+        @JsonProperty("isSeries") boolean isSeries
+
 ) {
     // Кастомный геттер для актеров
     public List<String> actors() {
