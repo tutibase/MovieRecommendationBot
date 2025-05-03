@@ -10,5 +10,5 @@ public interface WatchListDao {
     //Получение списка всех фильмов "Буду смотреть"
     List<WatchListRecord> getWatchlistByTelegramId(long telegramId);
     //Удаление фильма по id из списка "Буду смотреть"
-    int deleteFromWatchList(long telegramId, int filmId);
+    int deleteFromWatchList(long telegramId, String filmTitle);
 }
