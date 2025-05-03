@@ -134,7 +134,7 @@ public class FilmDaoImpl implements FilmDao {
                             countries.forEach(country -> builder.queryParam("countries.name", country))
                     );
                     Optional.ofNullable(params.actors()).ifPresent(persons ->
-                            persons.forEach(actor -> builder.queryParam("persons.id", "+" + actor))
+                            persons.forEach(actor -> builder.queryParam("persons.id", actor))
                     );
                     return builder.build();
                 })
