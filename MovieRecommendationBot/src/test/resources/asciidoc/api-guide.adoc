@@ -1,15 +1,28 @@
 = Руководство по API
 :doctype: book
 :icons: font
-:source-highlighter: highlightjs
 :toc: left
 :toclevels: 2
-:sectlinks:
+
+[[healthcheck]]
+== Проверка состояния сервера
+
+Запрос для проверки работоспособности сервера.
+
+=== HTTP-запрос
+
+include::{snippets}/healthcheck/http-request.adoc[]
+
+=== Пример ответа
+
+[source,text]
+include::{snippets}/healthcheck/response-body.adoc[]
+
 
 [[get-users]]
 == Получение списка пользователей
 
-Запрос для получения списка зарегистрированных пользователей.
+Запрос для получения списка зарегистрированных пользователей (только для администратора).
 
 === HTTP-запрос
 
