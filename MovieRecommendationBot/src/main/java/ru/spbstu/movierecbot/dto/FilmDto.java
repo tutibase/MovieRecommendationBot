@@ -19,7 +19,7 @@ public record FilmDto(
         @JsonProperty("fees") Fees fees,
         @JsonProperty("similarMovies") List<SimilarMovie> similarFilmsData,
         @JsonProperty("description") String description,
-        @JsonProperty("isSeries") boolean isSeries
+        @JsonProperty("isSeries") Boolean isSeries
 
 ) {
     // Кастомный геттер для актеров
