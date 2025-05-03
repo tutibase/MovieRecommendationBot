@@ -16,12 +16,17 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.config.EnableWebFlux;
 import ru.spbstu.movierecbot.config.AppConfig;
+import ru.spbstu.movierecbot.config.TestMockConfig;
 import ru.spbstu.movierecbot.config.WebConfig;
 
 import static org.springframework.restdocs.webtestclient.WebTestClientRestDocumentation.document;
 
 @ExtendWith({SpringExtension.class, RestDocumentationExtension.class})
-@ContextConfiguration(classes = {AppConfig.class, WebConfig.class})
+@ContextConfiguration(classes = {
+        AppConfig.class,
+        WebConfig.class,
+        TestMockConfig.class
+})
 @EnableWebFlux
 public class AdminControllerDocumentationTest {
 
