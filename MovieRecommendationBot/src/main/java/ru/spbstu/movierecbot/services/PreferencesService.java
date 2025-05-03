@@ -114,6 +114,7 @@ public class PreferencesService {
         // Парсим ввод пользователя по запятым
         List<String> parsedInput = Arrays.stream(input.split(","))
                 .map(String::trim)
+                .distinct()  // Удаляет дубликаты
                 .toList();
 
         if (parsedInput.isEmpty()) {
@@ -175,26 +176,26 @@ public class PreferencesService {
 
 
     // Метод для формирования итогового сообщения после добавления предпочтений
-    private String buildResultAddMessage(CategoryType type, CheckResultLists resultLists) {
+    private String buildResultAddMessage(CategoryType type, CheckResultLists checkResultLists) {
         StringBuilder result = new StringBuilder();
         String category = type.getDisplayName().toLowerCase(); // "жанры", "режиссеры" и т.д.
 
-        if (!resultLists.addedPreferences.isEmpty()) {
+        if (!checkResultLists.addedPreferences.isEmpty()) {
             result.append("✨ Отлично! Новые ").append(category).append(" добавлены в список предпочтений: \n")
-                    .append("👉 ").append(String.join(", ", resultLists.addedPreferences))
+                    .append("👉 ").append(String.join(", ", checkResultLists.addedPreferences))
                     .append("\n\n");
         }
 
-        if (!resultLists.duplicatePreferences.isEmpty()) {
+        if (!checkResultLists.duplicatePreferences.isEmpty()) {
             result.append("😊 Эти ").append(category).append(" уже есть в вашем списке предпочтений: \n")
-                    .append("🔹 ").append(String.join(", ", resultLists.duplicatePreferences))
+                    .append("🔹 ").append(String.join(", ", checkResultLists.duplicatePreferences))
                     .append("\n\n");
         }
 
-        if (!resultLists.invalidInput.isEmpty()) {
+        if (!checkResultLists.invalidInput.isEmpty()) {
             result.append("🤔 К сожалению, эти ").append(category)
                     .append(" не добавлены в список предпочтений (проверьте написание): \n")
-                    .append("✖ ").append(String.join(", ", resultLists.invalidInput))
+                    .append("✖ ").append(String.join(", ", checkResultLists.invalidInput))
                     .append("\n\n");
         }
 
