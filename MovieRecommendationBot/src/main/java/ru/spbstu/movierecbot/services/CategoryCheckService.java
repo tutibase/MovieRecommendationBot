@@ -29,7 +29,7 @@ public class CategoryCheckService {
     public class CheckResultLists {
         //добавление
         List<String> validInput;
-        List<Map.Entry<String, Integer>> validInputActors = new ArrayList<>(); //
+        List<Map.Entry<String, String>> validInputActors = new ArrayList<>(); //1 - id, 2 - name
         List<String> invalidInput;
         //только для работы с предпочтениями исп-тся следующие списки:
         List<String> duplicatePreferences;
@@ -179,7 +179,7 @@ public class CategoryCheckService {
                 .block();
 
         if (actor != null) {
-            checkResultLists.validInputActors.add(Map.entry(actor.name(), actor.id()));
+            checkResultLists.validInputActors.add(Map.entry(actor.id().toString(), actor.name()));
         } else {
             checkResultLists.invalidInput.add(input);
         }

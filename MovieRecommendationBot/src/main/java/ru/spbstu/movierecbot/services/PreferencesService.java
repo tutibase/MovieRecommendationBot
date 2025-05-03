@@ -135,8 +135,8 @@ public class PreferencesService {
                         return Flux.fromIterable(checkResultLists.validInputActors)
                                 .flatMap(pair -> Mono.fromCallable(() ->
                                         new PreferenceResult(
-                                                pair.getKey(),
-                                                addPreferenceToUserDb(telegramId, pair.getKey(), pair.getValue(), type)
+                                                pair.getValue(),
+                                                addPreferenceToUserDb(telegramId, pair.getValue(), Integer.valueOf(pair.getKey()), type)
                                         )).subscribeOn(Schedulers.boundedElastic())
                                 )
                                 .collectList()
