@@ -40,7 +40,7 @@ public class InfoAboutFilmService {
                 🌐 <b>IMDb:</b> %s
         
                 <b>📜 Описание:</b>
-                🔞 <b>Возраст:</b> %s +
+                🔞 <b>Ограничение:</b> %s +
                 🏷 <b>Жанры:</b> %s
                 🌍 <b>Страны:</b> %s
         
@@ -51,24 +51,28 @@ public class InfoAboutFilmService {
                 ⏱ <b>Длительность:</b> %d мин.
                 💵 <b>Бюджет:</b> %s
                 🏦 <b>Сборы в мире:</b> %s
+                
+                <b>😊 Описание фильма:</b>
+                %s
         
                 <b>🎬 Похожие фильмы:</b>
                 %s
                 """,
                 escapeHtml(film.russianTitle()),
                 film.premiereYear(),
-                formatType(film.isSeries()),
                 getRatingEmoji(film.rating().kinopoiskRating()),
+                formatType(film.isSeries()),
                 escapeHtml(formatRating(film.rating().kinopoiskRating())),
                 escapeHtml(formatRating(film.rating().imdbRating())),
                 escapeHtml(film.ageLimit()),
                 escapeHtml(formatGenres(film.genres())),
                 escapeHtml(formatCountries(film.countries())),
-                escapeHtml(formatActors(film.personsData())),
+                escapeHtml(formatActors(film.actors())),
                 film.duration(),
                 escapeHtml(formatBudget(film.budget())),
                 escapeHtml(formatFees(film.fees())),
-                escapeHtml(formatSimilarFilms(film.similarFilmsData()))
+                film.description(),
+                escapeHtml(formatSimilarFilms(film.similarFilms()))
         );
     }
 
@@ -92,19 +96,12 @@ public class InfoAboutFilmService {
     }
 
     public String formatCountries(List<FilmDto.Country> countries) {
+        if (countries == null || countries.isEmpty()) return "—";
         return countries.stream()
                 .map(FilmDto.Country::name)
-                .limit(3)
                 .collect(Collectors.joining(", "));
     }
 
-    public String formatActors(List<FilmDto.Person> persons) {
-        if (persons == null || persons.isEmpty()) return "—";
-        return persons.stream()
-                .limit(5)
-                .map(f -> "• " + f.name())
-                .collect(Collectors.joining("\n"));
-    }
 
     public String formatBudget(FilmDto.Budget budget) {
         if (budget == null) return "—";
@@ -116,19 +113,23 @@ public class InfoAboutFilmService {
         return String.format("%,d", fees.worldFee().value());
     }
 
-    public String formatSimilarFilms(List<FilmDto.SimilarMovie> films) {
+    public String formatActors(List<String> persons) {
+        if (persons == null || persons.isEmpty()) return "—";
+        return persons.stream()
+                .map(name -> ("• "  + name))
+                .collect(Collectors.joining("\n"));
+    }
+
+    public String formatSimilarFilms(List<String> films) {
         if (films == null || films.isEmpty()) return "—";
         return films.stream()
-                .limit(3)
-                .map(f -> "• " + f.name())
+                .map(film -> "• " + (film==null? "—": film))
                 .collect(Collectors.joining("\n"));
     }
 
     public String formatType(Boolean type){
-        if (type){
-            return "Сериал";
-        }
-        else return "Фильм";
+        if (type){return "сериал";}
+        else {return "фильм";}
     }
     public String getRatingEmoji(Double kpRating) {
         if (kpRating == null) return "";
