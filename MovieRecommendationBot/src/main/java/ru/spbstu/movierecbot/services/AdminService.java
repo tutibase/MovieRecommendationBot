@@ -4,7 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
-import ru.spbstu.movierecbot.dao.UserDao;
+import ru.spbstu.movierecbot.dao.pg.UserDao;
 import ru.spbstu.movierecbot.dbClasses.tables.records.UsersRecord;
 
 @Service
@@ -20,6 +20,9 @@ public class AdminService {
 
     public Flux<UsersRecord> getUsersIfAdmin(String password) {
         // Проверка пароля и получение пользователей
+        if (!adminPassword.equals(password)) {
+            return Flux.error(new SecurityException("Unauthorized"));
+        }
         return Flux.fromIterable(userDao.getAllUsers())
                 .subscribeOn(Schedulers.boundedElastic()); // Для блокирующего DAO
     }

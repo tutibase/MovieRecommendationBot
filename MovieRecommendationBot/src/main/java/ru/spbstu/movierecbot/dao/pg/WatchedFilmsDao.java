@@ -1,4 +1,4 @@
-package ru.spbstu.movierecbot.dao;
+package ru.spbstu.movierecbot.dao.pg;
 import ru.spbstu.movierecbot.dbClasses.tables.records.WatchedFilmsRecord;
 import java.time.LocalDate;
 import java.util.List;

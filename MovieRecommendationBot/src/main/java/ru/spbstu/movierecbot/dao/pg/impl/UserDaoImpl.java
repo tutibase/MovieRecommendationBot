@@ -1,5 +1,5 @@
-package ru.spbstu.movierecbot.dao.impl;
-import ru.spbstu.movierecbot.dao.UserDao;
+package ru.spbstu.movierecbot.dao.pg.impl;
+import ru.spbstu.movierecbot.dao.pg.UserDao;
 import ru.spbstu.movierecbot.dbClasses.tables.Users;
 import ru.spbstu.movierecbot.dbClasses.tables.records.UsersRecord;
 import org.jooq.DSLContext;

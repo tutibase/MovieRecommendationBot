@@ -1,8 +1,8 @@
-package ru.spbstu.movierecbot.dao.impl;
+package ru.spbstu.movierecbot.dao.pg.impl;
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
-import ru.spbstu.movierecbot.dao.GenreDao;
+import ru.spbstu.movierecbot.dao.pg.GenreDao;
 import ru.spbstu.movierecbot.dbClasses.tables.records.GenresRecord;
 import java.util.List;
 import static ru.spbstu.movierecbot.dbClasses.tables.Genres.GENRES;

@@ -1,12 +1,11 @@
-package ru.spbstu.movierecbot.dao.impl;
+package ru.spbstu.movierecbot.dao.pg.impl;
 
 import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
-import ru.spbstu.movierecbot.dao.WatchListDao;
+import ru.spbstu.movierecbot.dao.pg.WatchListDao;
 import java.util.List;
 
-import ru.spbstu.movierecbot.dbClasses.tables.WatchList;
 import ru.spbstu.movierecbot.dbClasses.tables.records.WatchListRecord;
 
 import static ru.spbstu.movierecbot.dbClasses.tables.WatchList.WATCH_LIST;

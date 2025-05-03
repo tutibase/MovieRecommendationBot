@@ -1,4 +1,4 @@
-package ru.spbstu.movierecbot.dao;
+package ru.spbstu.movierecbot.dao.pg;
 import ru.spbstu.movierecbot.dbClasses.tables.records.ActorsRecord;
 import java.util.List;
 
