@@ -28,11 +28,12 @@ public class WatchListService {
             List<WatchListRecord> watchFilmList = watchListDao.getWatchlistByTelegramId(telegramId);
 
             if (watchFilmList.isEmpty()) {
-                return "Ваш список \"Буду смотреть\" пуст.";
+                return "📭 <b>Ваш список \"Буду смотреть\" пуст</b>\n" +
+                        "Добавьте первый фильм с помощью /addToWatchList";
             }
 
             StringBuilder result = new StringBuilder();
-            result.append("Ваш список \"Буду смотреть\":\n\n");
+            result.append("📋 <b>Ваш список \"Буду смотреть\":</b>\n\n");
             watchFilmList.forEach(film -> {
                 result.append("• ").append(film.getTitle());
                 result.append("\n");
@@ -46,34 +47,32 @@ public class WatchListService {
         return filmDao.getFilmByName(filmTitle)
                 .flatMap(filmDto -> Mono.fromCallable(() -> {
                             if (watchListDao.addToWatchlist(telegramId, filmDto.id(), filmDto.russianTitle()) != 0) {
-                                return "Фильм \"" + filmDto.russianTitle() +
-                                        "\" добавлен в список \"Буду смотреть\".";
+                                return "✅ Фильм \"" + filmDto.russianTitle() +
+                                        "\" добавлен в \"Буду смотреть\"! 🎬";
                             } else {
-                                return "Фильм \"" + filmDto.russianTitle() +
-                                        "\" уже есть в вашем списке \"Буду смотреть\".";
+                                return "ℹ️ Фильм \"" + filmDto.russianTitle() +
+                                        "\" уже есть в вашем списке \"Буду смотреть\"";
                             }
                         })
                         .subscribeOn(Schedulers.boundedElastic())) // Выносим блокирующую операцию
-                .onErrorResume(error -> Mono.just("Не удалось найти фильм с названием \"" +
-                        filmTitle + "\". В список \"Буду смотреть\" ничего не добавлено."));
+                .onErrorResume(error -> Mono.just("⚠️ Фильм \"" + filmTitle +
+                        "\" не найден\nСписок \"Буду смотреть\" не изменён"));
     }
 
     //Обработчик команды /deleteFromWatchList
     public Mono<String> deleteFromWatchList(long telegramId, String filmTitle) {
-        StringBuilder result = new StringBuilder();
-        return filmDao.getFilmByName(filmTitle)
-                .flatMap(filmDto -> Mono.fromCallable(() -> {
-                            if (watchListDao.deleteFromWatchList(telegramId, filmDto.id()) != 0) {
-                                return "Фильм \"" + filmDto.russianTitle() +
-                                        "\" удален из списка \"Буду смотреть\".";
-                            } else {
-                                return "Фильма \"" + filmDto.russianTitle() +
-                                        "\" не было в вашем списке \"Буду смотреть\".";
-                            }
-                        })
-                        .subscribeOn(Schedulers.boundedElastic())) // Выносим блокирующую операцию
-                .onErrorResume(error -> Mono.just("Не удалось найти фильм с названием \"" +
-                        filmTitle + "\". Из списка \"Буду смотреть\" ничего не удалено."));
+        return Mono.fromCallable(() -> watchListDao.deleteFromWatchList(telegramId, filmTitle))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(result -> {
+                    if (result != 0) {
+                        return Mono.just("🗑️ Фильм \"" + filmTitle +
+                                "\" удалён из \"Буду смотреть\"");
+                    } else {
+                        return Mono.just("🔍 Фильма \"" + filmTitle +
+                                "\" не было в вашем списке \"Буду смотреть\"");
+                    }
+                })
+                .onErrorResume(e -> Mono.just("⚠️ Ошибка при удалении фильма"));
     }
 }
 
