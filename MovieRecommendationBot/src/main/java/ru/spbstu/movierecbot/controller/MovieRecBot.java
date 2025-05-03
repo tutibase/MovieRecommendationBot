@@ -40,13 +40,12 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
     Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMenu;
     Mono<ReplyKeyboardMarkup> replyKeyboardMarkupFilters;
     Mono<ReplyKeyboardMarkup> replyKeyboardMarkupSearch;
-    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMonoWatchList;
-    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPref;
-    Mono<ReplyKeyboardMarkup> replyKeyboardShowPeriod;
-    Mono<ReplyKeyboardMarkup> deletePreferencesKeyboardMarkup;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupWatchList;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPreferences;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupShowPeriod;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupDeletePreferences;
     Mono<ReplyKeyboardMarkup> replyKeyboardMarkupWatchedList;
-    Mono<ReplyKeyboardMarkup> replyKeyboardAddPref;
-    Mono<ReplyKeyboardMarkup> replyKeyboardDelPref;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupAddPreferences;
 
 
     @Autowired
@@ -68,13 +67,12 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
         this.replyKeyboardMarkupMenu = keyboardService.menuKeyboardMarkup();
         this.replyKeyboardMarkupFilters = keyboardService.getFiltersKeyboard();
         this.replyKeyboardMarkupSearch = keyboardService.searchKeyboardMarkup();
-        this.replyKeyboardMarkupMonoWatchList = keyboardService.watchListKeyboardMarkup();
-        this.replyKeyboardMarkupPref = keyboardService.preferencesKeyboardMarkup();
-        this.replyKeyboardShowPeriod = keyboardService.showWatchedPeriodKeyboardMarkup();
-        this.deletePreferencesKeyboardMarkup = keyboardService.deletePreferencesKeyboardMarkup();
+        this.replyKeyboardMarkupWatchList = keyboardService.watchListKeyboardMarkup();
+        this.replyKeyboardMarkupPreferences = keyboardService.preferencesKeyboardMarkup();
+        this.replyKeyboardMarkupShowPeriod = keyboardService.showWatchedPeriodKeyboardMarkup();
+        this.replyKeyboardMarkupDeletePreferences = keyboardService.deletePreferencesKeyboardMarkup();
         this.replyKeyboardMarkupWatchedList = keyboardService.watchedListKeyboardMarkup();
-        this.replyKeyboardAddPref = keyboardService.addPreferencesKeyboardMarkup();
-        this.replyKeyboardDelPref = keyboardService.deletePreferencesKeyboardMarkup();
+        this.replyKeyboardMarkupAddPreferences = keyboardService.addPreferencesKeyboardMarkup();
 
     }
 
@@ -132,11 +130,6 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
 
     private void handleMainCommand(String command, Long chatId, String username){
         StringBuilder response = new StringBuilder();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMenu = keyboardService.menuKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupSearch = keyboardService.searchKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMonoWatchList = keyboardService.watchListKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPref = keyboardService.preferencesKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupWatchedList = keyboardService.watchedListKeyboardMarkup();
         switch (command) {
             case "/start":
                 userService.registerUser(chatId);
@@ -161,47 +154,59 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                                 );
                 break;
             case "/searchfilm":
-                response.append("🔍 <b>Выберите способ поиска фильмов:</b>\n\n" +
-                        "🎛️ A. /searchByFilters - Поиск по фильтрам\n" +
-                        "❤️ B. /searchByPref - Поиск по вашим предпочтениям\n" +
-                        "🎲 C. /searchRandom - Случайная рекомендация\n\n" +
-                        "Какой вариант вам интересен? 😊");
+                response.append("""
+                        🔍 <b>Выберите способ поиска фильмов:</b>
+                        
+                        🎛️ A. /searchByFilters - Поиск по фильтрам
+                        ❤️ B. /searchByPref - Поиск по вашим предпочтениям
+                        🎲 C. /searchRandom - Случайная рекомендация
+                        
+                        Какой вариант вам интересен? 😊""");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupSearch);
                 stateService.setState(chatId, UserState.WAITING_SEARCH_COMMAND);
                 break;
             case "/watchlist":
-                response.append("\uD83D\uDCCB <b>Для работы со списком «Буду смотреть»</b>\n\n" +
-                        "Выберите действие или команду:\n" +
-                        "\uD83D\uDC41\uFE0F /showWatchList — Показать список\n" +
-                        "➕ /addToWatchList — Добавить фильм\n" +
-                        "\uD83D\uDDD1\uFE0F /deleteFromWatchList — Удалить фильм\n" +
-                        "Управляйте вашей коллекцией легко! \uD83D\uDE09");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
+                response.append("""
+                        \uD83D\uDCCB <b>Для работы со списком «Буду смотреть»</b>
+                        
+                        Выберите действие или команду:
+                        \uD83D\uDC41\uFE0F /showWatchList — Показать список
+                        ➕ /addToWatchList — Добавить фильм
+                        \uD83D\uDDD1\uFE0F /deleteFromWatchList — Удалить фильм
+                        Управляйте вашей коллекцией легко! \uD83D\uDE09""");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchList);
                 stateService.setState(chatId, UserState.WAITING_WATCH_LIST_COMMAND);
                 break;
             case "/preferences":
-                response.append("\uD83C\uDF1F <b>Работа с вашими предпочтениями</b> \uD83C\uDF1F\n\n" +
-                        "Выберите действие:\n\n " +
-                        "\uD83D\uDD0D /showMyPreferences - Показать текущие предпочтения\n" +
-                        "➕ /addPreferences - Добавить новые предпочтения\n" +
-                        "❌ /deletePreferences - Удалить предпочтения\n" +
-                        "Ваш выбор поможет нам сделать подборку идеальной! \uD83D\uDCAB");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), deletePreferencesKeyboardMarkup);
+                response.append("""
+                        \uD83C\uDF1F <b>Работа с вашими предпочтениями</b> \uD83C\uDF1F
+                        
+                        Выберите действие:
+                        
+                        \uD83D\uDD0D /showMyPreferences - Показать текущие предпочтения
+                        ➕ /addPreferences - Добавить новые предпочтения
+                        ❌ /deletePreferences - Удалить предпочтения
+                        Ваш выбор поможет нам сделать подборку идеальной! \uD83D\uDCAB""");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPreferences);
                 stateService.setState(chatId, UserState.WAITING_PREFERENCE_COMMAND);
                 break;
             case "/watchedlist":
-                response.append("\uD83C\uDFAC <b>Работа со списком \"Просмотренные фильмы\"</b> \uD83C\uDFAC\n\n" +
-                        "Выберите действие:\n\n " +
-                        "\uD83D\uDCCB /showWatchedFilmsList - Показать просмотренные фильмы\n" +
-                        "➕ /addToWatchedFilmsList - Добавить фильм в список\n" +
-                        "⭐ /addMarkToWatchedFilm - Оценить фильм\n" +
-                        "✏\uFE0F /addReviewToWatchedFilm - Написать отзыв\n" +
-                        " Сохраняйте ваши киновпечатления! \uD83C\uDF7F");
+                response.append("""
+                        \uD83C\uDFAC <b>Работа со списком "Просмотренные фильмы"</b> \uD83C\uDFAC
+                        
+                        Выберите действие:
+                        
+                        \uD83D\uDCCB /showWatchedFilmsList - Показать просмотренные фильмы
+                        ➕ /addToWatchedFilmsList - Добавить фильм в список
+                        ⭐ /addMarkToWatchedFilm - Оценить фильм
+                        ✏\uFE0F /addReviewToWatchedFilm - Написать отзыв
+                         Сохраняйте ваши киновпечатления! \uD83C\uDF7F""");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchedList);
                 stateService.setState(chatId, UserState.WAITING_WATCHED_LIST_COMMAND);
                 break;
             case "/infoaboutfilm":
-                sendResponse(chatId, "\uD83D\uDD0D Введите название фильма, о котором хотите получить информацию");
+                response.append("\uD83D\uDD0D Введите название фильма, о котором хотите получить информацию");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMenu);
                 stateService.setState(chatId, UserState.WAITING_FILM_TITLE_FOR_INF);
                 break;
             default:
@@ -228,20 +233,24 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchList);
                                     stateService.setState(chatId, UserState.WAITING_WATCH_LIST_COMMAND);
                                 }
                         );
                 break;
             case "/addPreferences":
-                response.append("🌟 <b>Добавление предпочтений</b> 🌟\n\n" +
-                        "Выберите категорию для настройки:\n\n" +
-                        "🎭 /addGenrePreferences - Любимые жанры\n" +
-                        "👨‍🎤 /addActorPreferences - Предпочитаемые актеры\n" +
-                        "🌍 /addCountryPreferences - Страны производства\n" +
-                        "📅 /addYearPreferences - Годы выпуска\n\n" +
-                        "Настройте подборку под свой вкус! 💫");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPref);
+                response.append("""
+                        🌟 <b>Добавление предпочтений</b> 🌟
+                        
+                        Выберите категорию для настройки:
+                        
+                        🎭 /addGenrePreferences - Любимые жанры
+                        👨‍🎤 /addActorPreferences - Предпочитаемые актеры
+                        🌍 /addCountryPreferences - Страны производства
+                        📅 /addYearPreferences - Годы выпуска
+                        
+                        Настройте подборку под свой вкус! 💫""");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                 stateService.setState(chatId, UserState.WAITING_PREF_TYPE_FOR_ADD);
                 break;
             case "/addGenrePreferences":
@@ -257,21 +266,28 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 stateService.setState(chatId, UserState.WAITING_COUNTRY_FOR_ADD);
                 break;
             case "/addYearPreferences":
-                sendResponse(chatId, "⏳ Введите годы выпуска фильмов:\n\n" +
-                        "• Диапазон:  <b>2005-2010</b>\n" +
-                        "• Отдельные годы: <b>2012, 2015, 2018</b>\n\n" +
-                        "Выберите удобный формат ввода 🎬");
+                sendResponse(chatId, """
+                        ⏳ Введите годы выпуска фильмов:
+                        
+                        • Диапазон:  <b>2005-2010</b>
+                        • Отдельные годы: <b>2012, 2015, 2018</b>
+                        
+                        Выберите удобный формат ввода 🎬""");
                 stateService.setState(chatId, UserState.WAITING_YEAR_FOR_ADD);
                 break;
             case "/deletePreferences":
-                response.append("🗑️ <b>Удаление предпочтений</b> 🗑️\n\n" +
-                        "Выберите категорию для удаления:\n\n" +
-                        "🎭 /deleteGenrePreferences - Удалить жанры\n" +
-                        "👨‍🎤 /deleteActorPreferences - Удалить актеров\n" +
-                        "🌍 /deleteCountryPreferences - Удалить страны\n" +
-                        "📅 /deleteYearPreferences - Удалить годы\n\n" +
-                        "Вы можете удалить ненужные предпочтения ❌");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), deletePreferencesKeyboardMarkup);
+                response.append("""
+                        🗑️ <b>Удаление предпочтений</b> 🗑️
+                        
+                        Выберите категорию для удаления:
+                        
+                        🎭 /deleteGenrePreferences - Удалить жанры
+                        👨‍🎤 /deleteActorPreferences - Удалить актеров
+                        🌍 /deleteCountryPreferences - Удалить страны
+                        📅 /deleteYearPreferences - Удалить годы
+                        
+                        Вы можете удалить ненужные предпочтения ❌""");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                 stateService.setState(chatId, UserState.WAITING_PREF_TYPE_FOR_DELETE);
                 break;
             case "/deleteGenrePreferences":
@@ -287,11 +303,14 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 stateService.setState(chatId, UserState.WAITING_COUNTRY_FOR_DELETE);
                 break;
             case "/deleteYearPreferences":
-                sendResponse(chatId, "🗓️ <b>Удаление годов из предпочтений</b> 🗓️\n\n" +
-                        "Введите:\n" +
-                        "• Диапазон: <b>2005-2010</b>\n" +
-                        "• Или отдельные годы: <b>2012, 2015, 2018</b>\n\n" +
-                        "❌ Указанные годы будут удалены из ваших предпочтений");
+                sendResponse(chatId, """
+                        🗓️ <b>Удаление годов из предпочтений</b> 🗓️
+                        
+                        Введите:
+                        • Диапазон: <b>2005-2010</b>
+                        • Или отдельные годы: <b>2012, 2015, 2018</b>
+                        
+                        ❌ Указанные годы будут удалены из ваших предпочтений""");
                 stateService.setState(chatId, UserState.WAITING_YEAR_FOR_DELETE);
                 break;
             case "/showMyPreferences":
@@ -299,7 +318,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPreferences);
                                     stateService.setState(chatId, UserState.WAITING_PREFERENCE_COMMAND);
                                 }
                         );
@@ -318,14 +337,17 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 stateService.setState(chatId, UserState.WAITING_FILM_TITLE_FOR_ADD_REVIEW);
                 break;
             case "/showWatchedFilmsList":
-                response.append("📅 <b>Выберите период для просмотра истории:</b>\n\n" +
-                        "⏳ /threeMonths - Последние 3 месяца\n" +
-                        "🗓️ /lastMonth - Прошлый месяц\n" +
-                        "🎉 /lastYear - Прошлый год\n" +
-                        "🏆 /allPeriod - Всё время\n" +
-                        "🔍 /exactPeriod - Конкретные даты\n\n" +
-                        "Мы покажем ваши просмотренные фильмы за выбранный период \uD83D\uDFE3");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardShowPeriod);
+                response.append("""
+                        📅 <b>Выберите период для просмотра истории:</b>
+                        
+                        ⏳ /threeMonths - Последние 3 месяца
+                        🗓️ /lastMonth - Прошлый месяц
+                        🎉 /lastYear - Прошлый год
+                        🏆 /allPeriod - Всё время
+                        🔍 /exactPeriod - Конкретные даты
+                        
+                        Мы покажем ваши просмотренные фильмы за выбранный период \uD83D\uDFE3""");
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupShowPeriod);
                 stateService.setState(chatId, UserState.WAITING_SHOW_TYPE);
                 break;
             case "/threeMonths", "/lastMonth", "/lastYear":
@@ -333,7 +355,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardShowPeriod);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupShowPeriod);
                                     stateService.setState(chatId, UserState.WAITING_SHOW_TYPE);
                                 }
                         );
@@ -343,15 +365,17 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardShowPeriod);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupShowPeriod);
                                     stateService.setState(chatId, UserState.WAITING_SHOW_TYPE);
                                 }
                         );
                 break;
             case "/exactPeriod":
-                sendResponse(chatId,"📆 Введите период в формате:\n" +
-                        "<b>дд.мм.гггг - дд.мм.гггг</b>\n\n" +
-                        "Пример: <b>01.09.2024 - 30.09.2024</b>");
+                sendResponse(chatId, """
+                        📆 Введите период в формате:
+                        <b>дд.мм.гггг - дд.мм.гггг</b>
+                        
+                        Пример: <b>01.09.2024 - 30.09.2024</b>""");
                 stateService.setState(chatId, UserState.WAITING_PERIOD);
                 break;
             case "/searchByPref":
@@ -375,16 +399,19 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         );
                 break;
             case "/searchByFilters":
-                response.append("⚙️ <b>Настройка фильтров поиска:</b>\n\n" +
-                        "🎭 /chooseGenres - Выбрать жанры\n" +
-                        "🌟 /chooseActors - Выбрать актеров\n" +
-                        "⭐ /chooseRate - Выбрать рейтинг\n" +
-                        "⏱️ /chooseDuration - Выбрать длительность\n" +
-                        "📅 /chooseYears - Выбрать год выпуска\n" +
-                        "🌍 /chooseCountry - Выбрать страну\n" +
-                        "\uD83D\uDC40 /showFilters - Посмотреть выбранные фильтры\n" +
-                        "✅ /applyFilters - Применить фильтры\n\n" +
-                        "⚠️ При повторном выборе параметр будет сброшен");
+                response.append("""
+                        ⚙️ <b>Настройка фильтров поиска:</b>
+                        
+                        🎭 /chooseGenres - Выбрать жанры
+                        🌟 /chooseActors - Выбрать актеров
+                        ⭐ /chooseRate - Выбрать рейтинг
+                        ⏱️ /chooseDuration - Выбрать длительность
+                        📅 /chooseYears - Выбрать год выпуска
+                        🌍 /chooseCountry - Выбрать страну
+                        \uD83D\uDC40 /showFilters - Посмотреть выбранные фильтры
+                        ✅ /applyFilters - Применить фильтры
+                        
+                        ⚠️ При повторном выборе параметр будет сброшен""");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupFilters);
                 stateService.setState(chatId, UserState.WAITING_FILTER);
                 break;
@@ -399,24 +426,30 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 stateService.setState(chatId, UserState.WAITING_ACTOR_FILTER);
                 break;
             case "/chooseRate":
-                response.append("⭐ <b>Введите рейтинг для добавления в фильтры:</b>\n" +
-                        "• Диапазон: 7-9\n" +
-                        "• Конкретные значения: 8, 8.5, 9\n\n" +
-                        "От 0 до 10 (например: 7.5-9.2)\n");
+                response.append("""
+                        ⭐ <b>Введите рейтинг для добавления в фильтры:</b>
+                        • Диапазон: 7-9
+                        • Конкретные значения: 8, 8.5, 9
+                        
+                        От 0 до 10 (например: 7.5-9.2)
+                        """);
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupFilters);
                 stateService.setState(chatId, UserState.WAITING_RATE_FILTER);
                 break;
             case "/chooseDuration":
-                response.append("⏳ <b>Введите длительность (в минутах) для добавления в фильтры:</b>\n" +
-                        "Формат: 90-120 или 120\n\n" +
-                        "Максимум: 51420 мин (≈35 дней) 😅");
+                response.append("""
+                        ⏳ <b>Введите длительность (в минутах) для добавления в фильтры:</b>
+                        Формат: 90-120 или 120
+                        
+                        Максимум: 51420 мин (≈35 дней) 😅""");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupFilters);
                 stateService.setState(chatId, UserState.WAITING_DURATION_FILTER);
                 break;
             case "/chooseYears":
-                response.append("📅 <b>Введите годы выпуска для добавления в фильтры:</b>\n" +
-                        "• Диапазон: 2000-2010\n" +
-                        "• Конкретные годы: 2015, 2018, 2020");
+                response.append("""
+                        📅 <b>Введите годы выпуска для добавления в фильтры:</b>
+                        • Диапазон: 2000-2010
+                        • Конкретные годы: 2015, 2018, 2020""");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupFilters);
                 stateService.setState(chatId, UserState.WAITING_YEAR_FILTER);
                 break;
@@ -476,13 +509,16 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверная команда</b> ⚠️\n\n" +
-                            "Доступные команды:\n" +
-                            "➕ /addToWatchList - Добавить фильм\n" +
-                            "🗑️ /deleteFromWatchList - Удалить фильм\n" +
-                            "📋 /showWatchList - Показать список\n\n" +
-                            "Попробуйте еще раз 😊");
-                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
+                    response.append("""
+                            ⚠️ <b>Неверная команда</b> ⚠️
+                            
+                            Доступные команды:
+                            ➕ /addToWatchList - Добавить фильм
+                            🗑️ /deleteFromWatchList - Удалить фильм
+                            📋 /showWatchList - Показать список
+                            
+                            Попробуйте еще раз 😊""");
+                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchList);
                     stateService.setState(chatId,UserState.WAITING_WATCH_LIST_COMMAND);
                 }
                 break;
@@ -491,7 +527,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchList);
                                     stateService.setState(chatId, UserState.WAITING_WATCH_LIST_COMMAND);
                                 }
                         );
@@ -501,7 +537,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchList);
                                     stateService.setState(chatId, UserState.WAITING_WATCH_LIST_COMMAND);
                                 }
                         );
@@ -511,13 +547,16 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверная команда</b> ⚠️\n\n" +
-                            "Доступные команды:\n" +
-                            "➕ /addPreferences - Добавить предпочтения\n" +
-                            "🗑️ /deletePreferences - Удалить предпочтения\n" +
-                            "👀 /showMyPreferences - Показать мои предпочтения\n\n" +
-                            "Попробуйте еще раз 😊");
-                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPref);
+                    response.append("""
+                            ⚠️ <b>Неверная команда</b> ⚠️
+                            
+                            Доступные команды:
+                            ➕ /addPreferences - Добавить предпочтения
+                            🗑️ /deletePreferences - Удалить предпочтения
+                            👀 /showMyPreferences - Показать мои предпочтения
+                            
+                            Попробуйте еще раз 😊""");
+                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPreferences);
                     stateService.setState(chatId,UserState.WAITING_PREFERENCE_COMMAND);
                 }
                 break;
@@ -527,14 +566,17 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверный ввод</b> ⚠️\n\n" +
-                            "Доступные команды для добавления:\n" +
-                            "🎭 /addGenrePreferences - Жанры\n" +
-                            "🌟 /addActorPreferences - Актеры\n" +
-                            "🌍 /addCountryPreferences - Страны\n" +
-                            "📅 /addYearPreferences - Годы\n\n" +
-                            "Попробуйте еще раз! 😊");
-                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardAddPref);
+                    response.append("""
+                            ⚠️ <b>Неверный ввод</b> ⚠️
+                            
+                            Доступные команды для добавления:
+                            🎭 /addGenrePreferences - Жанры
+                            🌟 /addActorPreferences - Актеры
+                            🌍 /addCountryPreferences - Страны
+                            📅 /addYearPreferences - Годы
+                            
+                            Попробуйте еще раз! 😊""");
+                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_ADD);
                 }
                 break;
@@ -543,7 +585,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardAddPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_ADD);
                                 }
                         );
@@ -553,7 +595,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardAddPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_ADD);
                                 }
                         );
@@ -564,7 +606,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardAddPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_ADD);
                                 }
                         );
@@ -574,7 +616,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardAddPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupAddPreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_ADD);
                                 }
                         );
@@ -585,14 +627,17 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверный ввод</b> ⚠️\n\n" +
-                            "Доступные команды для добавления:\n" +
-                            "🎭 /deleteGenrePreferences - Жанры\n" +
-                            "👨‍🎤 /deleteActorPreferences - Актеры\n" +
-                            "🌎 /deleteCountryPreferences - Страны\n" +
-                            "📆 /deleteYearPreferences - Годы\n\n" +
-                            "Попробуйте еще раз! 😊");
-                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardDelPref);
+                    response.append("""
+                            ⚠️ <b>Неверный ввод</b> ⚠️
+                            
+                            Доступные команды для добавления:
+                            🎭 /deleteGenrePreferences - Жанры
+                            👨‍🎤 /deleteActorPreferences - Актеры
+                            🌎 /deleteCountryPreferences - Страны
+                            📆 /deleteYearPreferences - Годы
+                            
+                            Попробуйте еще раз! 😊""");
+                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_DELETE);
                 }
                 break;
@@ -601,7 +646,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardDelPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_DELETE);
                                 }
                         );
@@ -611,7 +656,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardDelPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_DELETE);
                                 }
                         );
@@ -621,7 +666,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardDelPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_DELETE);
                                 }
                         );
@@ -631,7 +676,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardDelPref);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupDeletePreferences);
                                     stateService.setState(chatId,UserState.WAITING_PREF_TYPE_FOR_DELETE);
                                 }
                         );
@@ -642,13 +687,16 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверный ввод</b> ⚠️\n\n" +
-                            "Доступные команды для работы с просмотренными фильмами:\n" +
-                            "🎬 /addToWatchedFilmsList - Добавить фильм\n" +
-                            "⭐ /addMarkToWatchedFilm - Поставить оценку\n" +
-                            "✏️ /addReviewToWatchedFilm - Написать отзыв\n" +
-                            "📋 /showWatchedFilmsList - Показать список\n\n" +
-                            "Попробуйте еще раз! 😊");
+                    response.append("""
+                            ⚠️ <b>Неверный ввод</b> ⚠️
+                            
+                            Доступные команды для работы с просмотренными фильмами:
+                            🎬 /addToWatchedFilmsList - Добавить фильм
+                            ⭐ /addMarkToWatchedFilm - Поставить оценку
+                            ✏️ /addReviewToWatchedFilm - Написать отзыв
+                            📋 /showWatchedFilmsList - Показать список
+                            
+                            Попробуйте еще раз! 😊""");
                     sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchedList);
                     stateService.setState(chatId,UserState.WAITING_WATCHED_LIST_COMMAND);
                 }
@@ -709,7 +757,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                             response.append("✅ Фильм \"").append(input).append("\" найден!\n\n")
                                     .append("✏️ Напишите ваш отзыв в следующем сообщении.\n")
                                     .append("Можно поделиться впечатлениями, оценкой актерской игры или сюжета.");
-                            sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchedList);
+                            sendResponse(chatId, response.toString());
                             stateService.setState(chatId, UserState.WAITING_REVIEW);
                         });
                 break;
@@ -736,7 +784,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                                 .append("🏆 /allPeriod - Все время\n")
                                 .append("🔍 /exactPeriod - Конкретные даты\n\n")
                                 .append("Попробуйте еще раз!");
-                        sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardShowPeriod);
+                        sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupShowPeriod);
                         stateService.setState(chatId, UserState.WAITING_SHOW_TYPE);
                     }
                 break;
@@ -745,7 +793,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         .subscribe(
                                 result -> {
                                     response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardShowPeriod);
+                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupShowPeriod);
                                     stateService.setState(chatId, UserState.WAITING_SHOW_TYPE);
                                 }
                         );
@@ -755,13 +803,16 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else {
-                    response.append("⚠️ <b>Неверный ввод</b> ⚠️\n\n" +
-                            "Доступные команды для работы с фильтрами:\n" +
-                                    "🎛️ A. /searchByFilters - Поиск по фильтрам\n" +
-                                    "❤️ B. /searchByPref - Поиск по вашим предпочтениям\n" +
-                                    "🎲 C. /searchRandom - Случайная рекомендация\n\n" +
-                            "Попробуйте еще раз! 😊");
-                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupWatchedList);
+                    response.append("""
+                            ⚠️ <b>Неверный ввод</b> ⚠️
+                            
+                            Доступные команды для работы с фильтрами:
+                            🎛️ A. /searchByFilters - Поиск по фильтрам
+                            ❤️ B. /searchByPref - Поиск по вашим предпочтениям
+                            🎲 C. /searchRandom - Случайная рекомендация
+                            
+                            Попробуйте еще раз! 😊""");
+                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupSearch);
                     stateService.setState(chatId,UserState.WAITING_SEARCH_COMMAND);
 
                 }
@@ -773,18 +824,21 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                     handleCommand(input, chatId);
                 }
                 else{
-                    response.append("⚠️ <b>Неверный ввод</b> ⚠️\n\n" +
-                            "Доступные команды для работы с настройки фильтров:\n" +
-                            "🎭 /chooseGenres - Выбрать жанры\n" +
-                            "🌟 /chooseActors - Выбрать актеров\n" +
-                            "⭐ /chooseRate - Выбрать рейтинг\n" +
-                            "⏱️ /chooseDuration - Выбрать длительность\n" +
-                            "📅 /chooseYears - Выбрать год выпуска\n" +
-                            "🌍 /chooseCountry - Выбрать страну\n" +
-                            "\uD83D\uDC40 /showFilters - Посмотреть выбранные фильтры\n" +
-                            "✅ /applyFilters - Применить фильтры\n\n" +
-                            "⚠️ При повторном выборе параметр будет сброшен" +
-                            "Попробуйте еще раз! 😊");
+                    response.append("""
+                            ⚠️ <b>Неверный ввод</b> ⚠️
+                            
+                            Доступные команды для работы с настройки фильтров:
+                            🎭 /chooseGenres - Выбрать жанры
+                            🌟 /chooseActors - Выбрать актеров
+                            ⭐ /chooseRate - Выбрать рейтинг
+                            ⏱️ /chooseDuration - Выбрать длительность
+                            📅 /chooseYears - Выбрать год выпуска
+                            🌍 /chooseCountry - Выбрать страну
+                            \uD83D\uDC40 /showFilters - Посмотреть выбранные фильтры
+                            ✅ /applyFilters - Применить фильтры
+                            
+                            ⚠️ При повторном выборе параметр будет сброшен\
+                            Попробуйте еще раз! 😊""");
                     sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupFilters);
                     stateService.setState(chatId,UserState.WAITING_FILTER);
                 }
