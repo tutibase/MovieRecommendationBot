@@ -264,6 +264,12 @@ public class KeyboardService {
             case "🌍 Страны" -> Mono.just("/addCountryPreferences");
             case "🗓️ Годы" -> Mono.just("/addYearPreferences");
 
+            // Удаление предпочтений
+            case "🎭 Удалить жанры" -> Mono.just("/deleteGenrePreferences");
+            case "👨‍🎤 Удалить актеров" -> Mono.just("/deleteActorPreferences");
+            case "🌍 Удалить страны" -> Mono.just("/deleteCountryPreferences");
+            case "📅 Удалить годы" -> Mono.just("/deleteYearPreferences");
+
             // Периоды просмотра
             case "⏳ 3 месяца" -> Mono.just("/threeMonths");
             case "🗓️ Прошлый месяц" -> Mono.just("/lastMonth");

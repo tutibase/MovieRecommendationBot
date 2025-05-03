@@ -37,6 +37,18 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
     private final PreferencesService preferencesService;
     private final SearchFilmService searchFilmService;
     private final KeyboardService keyboardService;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMenu;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupFilters;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupSearch;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMonoWatchList;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPref;
+    Mono<ReplyKeyboardMarkup> replyKeyboardShowPeriod;
+    Mono<ReplyKeyboardMarkup> deletePreferencesKeyboardMarkup;
+    Mono<ReplyKeyboardMarkup> replyKeyboardMarkupWatchedList;
+    Mono<ReplyKeyboardMarkup> replyKeyboardAddPref;
+    Mono<ReplyKeyboardMarkup> replyKeyboardDelPref;
+
+
     @Autowired
     public MovieRecBot(
             @Value("${bot.token}") String botToken,
@@ -53,7 +65,20 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
         this.preferencesService = preferencesService;
         this.searchFilmService = searchFilmService;
         this.keyboardService = keyboardService;
+        this.replyKeyboardMarkupMenu = keyboardService.menuKeyboardMarkup();
+        this.replyKeyboardMarkupFilters = keyboardService.getFiltersKeyboard();
+        this.replyKeyboardMarkupSearch = keyboardService.searchKeyboardMarkup();
+        this.replyKeyboardMarkupMonoWatchList = keyboardService.watchListKeyboardMarkup();
+        this.replyKeyboardMarkupPref = keyboardService.preferencesKeyboardMarkup();
+        this.replyKeyboardShowPeriod = keyboardService.showWatchedPeriodKeyboardMarkup();
+        this.deletePreferencesKeyboardMarkup = keyboardService.deletePreferencesKeyboardMarkup();
+        this.replyKeyboardMarkupWatchedList = keyboardService.watchedListKeyboardMarkup();
+        this.replyKeyboardAddPref = keyboardService.addPreferencesKeyboardMarkup();
+        this.replyKeyboardDelPref = keyboardService.deletePreferencesKeyboardMarkup();
+
     }
+
+
 
     @PostConstruct
     private void init() {
@@ -149,7 +174,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         "Выберите действие или команду:\n" +
                         "\uD83D\uDC41\uFE0F /showWatchList — Показать список\n" +
                         "➕ /addToWatchList — Добавить фильм\n" +
-                        "\uD83D\uDDD1\uFE0F /deleteFromWatchList — Удалить фильмы\n" +
+                        "\uD83D\uDDD1\uFE0F /deleteFromWatchList — Удалить фильм\n" +
                         "Управляйте вашей коллекцией легко! \uD83D\uDE09");
                 sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupMonoWatchList);
                 stateService.setState(chatId, UserState.WAITING_WATCH_LIST_COMMAND);
@@ -161,7 +186,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         "➕ /addPreferences - Добавить новые предпочтения\n" +
                         "❌ /deletePreferences - Удалить предпочтения\n" +
                         "Ваш выбор поможет нам сделать подборку идеальной! \uD83D\uDCAB");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPref);
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), deletePreferencesKeyboardMarkup);
                 stateService.setState(chatId, UserState.WAITING_PREFERENCE_COMMAND);
                 break;
             case "/watchedlist":
@@ -187,12 +212,7 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
     }
     private void handleCommand(String command, Long chatId) {
         StringBuilder response = new StringBuilder();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMenu = keyboardService.menuKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupFilters = keyboardService.getFiltersKeyboard();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupSearch = keyboardService.searchKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMonoWatchList = keyboardService.watchListKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPref = keyboardService.preferencesKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardShowPeriod = keyboardService.showWatchedPeriodKeyboardMarkup();
+
 
         switch (command) {
             case "/addToWatchList":
@@ -251,8 +271,8 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                         "🌍 /deleteCountryPreferences - Удалить страны\n" +
                         "📅 /deleteYearPreferences - Удалить годы\n\n" +
                         "Вы можете удалить ненужные предпочтения ❌");
-                sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupPref);
-                stateService.setState(chatId, UserState.WAITING_PREF_TYPE_FOR_ADD);
+                sendResponseWithKeyboardMarkup(chatId, response.toString(), deletePreferencesKeyboardMarkup);
+                stateService.setState(chatId, UserState.WAITING_PREF_TYPE_FOR_DELETE);
                 break;
             case "/deleteGenrePreferences":
                 sendResponse(chatId, "✂️ Введите жанры для удаления через запятую:");
@@ -435,14 +455,6 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
 
     private void handleStatefulInput(String input, Long chatId, String username) {
         StringBuilder response = new StringBuilder();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMenu = keyboardService.menuKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupMonoWatchList = keyboardService.watchListKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupPref = keyboardService.preferencesKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupWatchedList = keyboardService.watchedListKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardAddPref = keyboardService.addPreferencesKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardDelPref = keyboardService.deletePreferencesKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardShowPeriod = keyboardService.showWatchedPeriodKeyboardMarkup();
-        Mono<ReplyKeyboardMarkup> replyKeyboardMarkupFilters = keyboardService.getFiltersKeyboard();
         UserState currentState = stateService.getState(chatId);
         switch (currentState) {
             case IDLE:
