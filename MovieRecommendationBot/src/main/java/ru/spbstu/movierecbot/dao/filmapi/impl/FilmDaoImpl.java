@@ -30,7 +30,7 @@ public class FilmDaoImpl implements FilmDao {
         List<String> selectFields = List.of(
                 "id", "name", "description",
                 "year", "rating", "ageRating", "budget", "movieLength", "genres", "countries",
-                "persons", "fees", "premiere", "similarMovies");
+                "persons", "fees", "premiere", "similarMovies", "isSeries");
 
         return kinopoiskWebClient.get()
                 .uri(uriBuilder -> {
@@ -98,7 +98,7 @@ public class FilmDaoImpl implements FilmDao {
         List<String> selectFields = List.of(
                 "id", "name", "description",
                 "year", "rating", "ageRating", "budget", "movieLength", "genres", "countries",
-                "persons", "fees", "premiere", "similarMovies");
+                "persons", "fees", "premiere", "similarMovies", "isSeries");
 
         return kinopoiskWebClient.get()
                 .uri(uriBuilder -> {
