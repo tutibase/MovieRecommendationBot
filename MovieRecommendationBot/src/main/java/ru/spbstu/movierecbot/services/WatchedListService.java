@@ -39,15 +39,15 @@ public class WatchedListService {
                     String header = switch (command) {
                         case "/threeMonths" -> {
                             dateRange = new DateRange(now.minusMonths(3), now);
-                            yield "Ваши просмотренные фильмы за последние три месяца:\n\n";
+                            yield "🍿 <b>Ваши просмотренные фильмы за последние 3 месяца:</b>\n\n";
                         }
                         case "/lastMonth" -> {
                             dateRange = new DateRange(now.minusMonths(1), now);
-                            yield "Ваши просмотренные фильмы за последний месяц:\n\n";
+                            yield "🍿 <b>Ваши просмотренные фильмы за последний месяц:</b>\n\n";
                         }
                         case "/lastYear" -> {
                             dateRange = new DateRange(now.minusYears(1), now);
-                            yield "Ваши просмотренные фильмы за последний год:\n\n";
+                            yield "🍿 <b>Ваши просмотренные фильмы за последний год:</b>\n\n";
                         }
                         default -> throw new IllegalArgumentException("Неизвестная команда: " + command);
                     };
@@ -63,10 +63,11 @@ public class WatchedListService {
                     DateRange dateRange = parsePeriod(period);
 
                     if (dateRange.startOfPeriod.equals(LocalDate.MIN) && dateRange.endOfPeriod.equals(LocalDate.MAX)) {
-                        return Mono.<String>just("Период введен некорректно. Вывод фильмов за этот период невозможен.");
+                        return Mono.<String>just("⚠️ <b>Некорректный период</b> ⚠️\n\n" +
+                                "Вывод фильмов за указанный период невозможен.");
                     }
 
-                    String header = "Ваши просмотренные фильмы за период " + period + "\n\n";
+                    String header = "📽️ <b>Ваши просмотренные фильмы за период</b> " + period + ":\n\n";
                     return buildFilmListResponse(telegramId, dateRange.startOfPeriod, dateRange.endOfPeriod, header);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
@@ -75,20 +76,23 @@ public class WatchedListService {
     // Обработчик на команду /allPeriod
     public Mono<String> showWatchedFilmsListByAllPeriod(long telegramId) {
         return Mono.fromCallable(() -> {
-            StringBuilder result = new StringBuilder("Ваши просмотренные фильмы за все время:\n\n");
+            StringBuilder result = new StringBuilder("📽️ <b>Ваши просмотренные фильмы за все время:</b>\n\n");
             List<WatchedFilmsRecord> filmList = watchedFilmsDao.getWatchedFilmsByAllPeriod(telegramId);
 
             if (filmList.isEmpty()) {
-                return result.append("У вас нет просмотренных фильмов.").toString();
+                return result.append("🎬 Ваш киносписок пуст!\n" +
+                        "Самое время посмотреть что-то новое 😊").toString();
             }
 
             filmList.forEach(film -> {
-                result.append("• ").append(film.getTitle());
+                result.append("🎬 <b>").append(film.getTitle()).append("</b>\n");
+
                 if (film.getRating() != null) {
-                    result.append(" \n| Оценка: ").append(film.getRating());
+                    result.append("⭐ <i>Оценка:</i> <b>").append(film.getRating()).append("/10</b>\n");
                 }
+
                 if (film.getReview() != null && !film.getReview().isEmpty()) {
-                    result.append(" \n| Отзыв: ").append(film.getReview());
+                    result.append("✏️ <i>Отзыв:</i> ").append(film.getReview()).append("\n");
                 }
                 result.append("\n");
             });
@@ -102,15 +106,13 @@ public class WatchedListService {
         return filmDao.getFilmByName(filmTitle)
                 .flatMap(filmDto -> Mono.fromCallable(() -> {
                     if(watchedFilmsDao.addWatchedFilm(telegramId, filmDto.id(), filmDto.russianTitle()) !=0){;
-                            return "Фильм \"" + filmDto.russianTitle() +
-                                    "\" добавлен в список просмотренных фильмов.";}
+                            return "✅ Фильм \"" + filmDto.russianTitle() + "\" успешно добавлен в просмотренные! 🎬";}
                     else {
-                            return "Фильм \"" + filmDto.russianTitle() +
-                                "\" уже есть в вашем списке просмотренных.";}
+                            return "ℹ️ Фильм \"" + filmDto.russianTitle() + "\" уже есть в вашем списке просмотренных.";}
                 })
                         .subscribeOn(Schedulers.boundedElastic())) // Выносим блокирующую операцию
-                .onErrorResume(error -> Mono.just("Не удалось найти фильм с названием \"" +
-                        filmTitle + "\". В список просмотренных фильмов ничего не добавлено."));
+                .onErrorResume(error -> Mono.just("⚠️ Фильм \"" + filmTitle + "\" не найден.\n" +
+                        "Список просмотренных фильмов не изменён."));
     }
 
     // Здесь проверяем наличие фильма в БД по API
@@ -132,21 +134,27 @@ public class WatchedListService {
     }
     // Обработчик на команду /addScoreToWatchedFilm, который вызывается после checkFilmTitle
     public Mono<String> addMarkToWatchedFilm(long telegramId, String mark) {
-        if (checkFilmMark(mark)) {
-            int intMark = Integer.parseInt(mark);
-            FilmDto filmDto = userMarkOrReviewToFilm.get(telegramId);
-            watchedFilmsDao.addMarkToFilm(telegramId, filmDto.id(), intMark);
-            userMarkOrReviewToFilm.remove(telegramId);
-            return Mono.just("\"Вы поставили фильму \"" + filmDto.russianTitle() +"\" оценку " + intMark);}
+         if (checkFilmMark(mark)) {
+             return Mono.fromCallable(() -> {
+                        int intMark = Integer.parseInt(mark);
+                        FilmDto filmDto = userMarkOrReviewToFilm.get(telegramId);
+                        watchedFilmsDao.addMarkToFilm(telegramId, filmDto.id(), intMark);
+                        userMarkOrReviewToFilm.remove(telegramId);
+                        return "⭐ Вы оценили фильм \"" + filmDto.russianTitle() + "\" на " + intMark;
+                    })
+                    .subscribeOn(Schedulers.boundedElastic());
+        }
         else return Mono.empty();
     }
 
     // Обработчик на команду /addReviewToWatchedFilm, который вызывается после checkFilmTitle
     public Mono<String> addReviewToWatchedFilm(long telegramId, String review) {
-        FilmDto filmDto = userMarkOrReviewToFilm.get(telegramId);
-        watchedFilmsDao.addReviewToFilm(telegramId, filmDto.id(), review);
-        userMarkOrReviewToFilm.remove(telegramId);
-        return Mono.just("\"Вы оставили отзыв к фильму \"" + filmDto.russianTitle() + "\".");
+            return Mono.fromCallable(() -> {
+                FilmDto filmDto = userMarkOrReviewToFilm.get(telegramId);
+                watchedFilmsDao.addReviewToFilm(telegramId, filmDto.id(), review);
+                userMarkOrReviewToFilm.remove(telegramId);
+                return "📝 Вы оставили отзыв к фильму \"" + filmDto.russianTitle() + "\".";})
+                    .subscribeOn(Schedulers.boundedElastic());
     }
 
     // Парсер введенного периода
@@ -174,16 +182,18 @@ public class WatchedListService {
                     .getWatchedFilmsByExactPeriod(telegramId, startDate, endDate);
 
             if (filmList.isEmpty()) {
-                return result.append("У вас нет просмотренных фильмов за этот период.").toString();
+                return result.append("📭 <b>У вас нет просмотренных фильмов за этот период</b>").toString();
             }
 
             filmList.forEach(film -> {
-                result.append("• ").append(film.getTitle());
+                result.append("🎬 <b>").append(film.getTitle()).append("</b>\n");
+
                 if (film.getRating() != null) {
-                    result.append(" \n| Оценка: ").append(film.getRating());
+                    result.append("⭐ <i>Оценка:</i> <b>").append(film.getRating()).append("/10</b>\n");
                 }
+
                 if (film.getReview() != null && !film.getReview().isEmpty()) {
-                    result.append(" \n| Отзыв: ").append(film.getReview());
+                    result.append("✏️ <i>Отзыв:</i> ").append(film.getReview()).append("\n");
                 }
                 result.append("\n");
             });
