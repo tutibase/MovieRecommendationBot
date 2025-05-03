@@ -16,6 +16,8 @@ import ru.spbstu.movierecbot.dbClasses.tables.records.GenresRecord;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 import static ru.spbstu.movierecbot.services.CategoryCheckService.CategoryType;
 import ru.spbstu.movierecbot.dto.SearchParamsDto;
 import ru.spbstu.movierecbot.services.CategoryCheckService.CheckResultLists;
@@ -23,7 +25,7 @@ import ru.spbstu.movierecbot.services.CategoryCheckService.CheckResultLists;
 @Service
 public class SearchFilmService {
     private static final Logger log = LoggerFactory.getLogger(SearchFilmService.class);
-    private final ConcurrentHashMap<Long, HashMap<CategoryCheckService.CategoryType, List<String>>> usersFilterInput;
+    private final ConcurrentHashMap<Long, HashMap<CategoryCheckService.CategoryType, List<Map.Entry<String, String>>>> usersFilterInput;
     private final FilmDao filmDao;
     private final ActorsDao actorsDao;
     private final CountriesDao countriesDao;
@@ -103,7 +105,7 @@ public class SearchFilmService {
                             .collectList()
                             .flatMap(films -> {
                                 if (films.isEmpty()) {
-                                    result.append("Не найдено ни одного фильма, подходящего под ваши предпочтения.");
+                                    result.append("🤔 Не найдено ни одного фильма, подходящего под ваши предпочтения.");
                                 } else {
                                     result.append("✨ Вот найденные фильмы по вашим предпочтениям:\n\n");
                                     films.forEach(filmDto -> {
@@ -129,18 +131,15 @@ public class SearchFilmService {
 
         // кажется это лишняя проверка
         if (parsedInput.isEmpty()) {
-            return Mono.just("Вы не ввели никаких фильтров для добавления.");
+            return Mono.just("😒 Вы не ввели никаких фильтров для добавления.");
         }
 
         // Проверка валидности ввода
         CheckResultLists checkResultLists = categoryCheckService.checkIsInputValidByApi(type, parsedInput);
 
-        // Сохраняем валидный ввод в переменные
-        List<String> validInput = checkResultLists.validInput;
-        List<String> actorIdStrings = checkResultLists.validInputActors.stream()
-                .map(entry -> entry.getValue().toString())
-                .toList();
 
+        List<Map.Entry<String, String>> mappedValidInput = checkResultLists.validInput.stream().map(s -> Map.entry(s, ""))
+                .toList();
 
         // Сохраняем валидный ввод в ConcurrentHashMap для дальнейшего использования
         usersFilterInput.compute(telegramId, (key, userMap) -> {
@@ -148,9 +147,9 @@ public class SearchFilmService {
                 userMap = new HashMap<>();
             }
             if (type == CategoryType.ACTOR) {
-                userMap.put(type, new ArrayList<String>(actorIdStrings));
+                userMap.put(type, new ArrayList<Map.Entry<String,String>>(checkResultLists.validInputActors));
             } else {
-                userMap.put(type, new ArrayList<String>(validInput));
+                userMap.put(type, new ArrayList<Map.Entry<String,String>>(mappedValidInput));
             }
             return userMap;
         });
@@ -171,7 +170,7 @@ public class SearchFilmService {
 
         if (!checkResultLists.validInputActors.isEmpty() && type == CategoryType.ACTOR) {
             List<String> actorNameStrings = checkResultLists.validInputActors.stream()
-                    .map(entry -> entry.getKey())
+                    .map(entry -> entry.getValue())
                     .toList();
             result.append("✨ Отлично! Эти ").append(category).append(" добавлены в фильтр: \n")
                     .append("👉 ").append(String.join(", ", actorNameStrings))
@@ -191,20 +190,20 @@ public class SearchFilmService {
         StringBuilder result = new StringBuilder();
 
         if (usersFilterInput.get(telegramId) == null){
-            result.append("🤔 Вы не ввели ни одного фильтра, поиск невозможен.");
+            result.append("😒 Вы не ввели ни одного фильтра, поиск невозможен.");
             return Mono.just(result.toString());
         }
 
-        List<String> actors = usersFilterInput.get(telegramId).getOrDefault(CategoryType.ACTOR, List.of());
-        List<String> years = usersFilterInput.get(telegramId).getOrDefault(CategoryType.YEAR, List.of());
-        List<String> ratings = usersFilterInput.get(telegramId).getOrDefault(CategoryType.RATE, List.of());
-        List<String> genres = usersFilterInput.get(telegramId).getOrDefault(CategoryType.GENRE, List.of());
-        List<String> duration = usersFilterInput.get(telegramId).getOrDefault(CategoryType.DURATION, List.of());
-        List<String> countries = usersFilterInput.get(telegramId).getOrDefault(CategoryType.COUNTRY, List.of());
+        List<String> actors = getOneFilterListFromCommonList(telegramId,CategoryType.ACTOR);
+        List<String> years = getOneFilterListFromCommonList(telegramId,CategoryType.YEAR);
+        List<String> ratings = getOneFilterListFromCommonList(telegramId,CategoryType.RATE);
+        List<String> genres = getOneFilterListFromCommonList(telegramId,CategoryType.GENRE);
+        List<String> duration = getOneFilterListFromCommonList(telegramId,CategoryType.DURATION);
+        List<String> countries = getOneFilterListFromCommonList(telegramId,CategoryType.COUNTRY);
 
 
         if (actors.isEmpty() && years.isEmpty() && ratings.isEmpty() && genres.isEmpty() && duration.isEmpty() && countries.isEmpty()){
-            result.append("🤔 Вы не ввели ни одного фильтра, поиск невозможен.");
+            result.append("😒 Вы не ввели ни одного фильтра, поиск невозможен.");
             return Mono.just(result.toString());
         }
         SearchParamsDto searchParamsDto = new SearchParamsDto(years, ratings, duration, genres, countries, actors);
@@ -232,20 +231,36 @@ public class SearchFilmService {
                 });
     }
 
+
+    private List<String> getOneFilterListFromCommonList(long telegramId, CategoryType categoryType){
+        return usersFilterInput.get(telegramId)
+                .getOrDefault(categoryType, List.of())
+                .stream()
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+    }
+
+
     public Mono<String> showFilters(long telegramId){
         StringBuilder result = new StringBuilder();
 
         if (usersFilterInput.get(telegramId) == null){
-            result.append("🤔 У вас нет добавленных фильтров.");
+            result.append("😒 У вас нет добавленных фильтров.");
             return Mono.just(result.toString());
         }
 
-        List<String> actors = usersFilterInput.get(telegramId).getOrDefault(CategoryType.ACTOR, List.of());
-        List<String> years = usersFilterInput.get(telegramId).getOrDefault(CategoryType.YEAR, List.of());
-        List<String> ratings = usersFilterInput.get(telegramId).getOrDefault(CategoryType.RATE, List.of());
-        List<String> genres = usersFilterInput.get(telegramId).getOrDefault(CategoryType.GENRE, List.of());
-        List<String> duration = usersFilterInput.get(telegramId).getOrDefault(CategoryType.DURATION, List.of());
-        List<String> countries = usersFilterInput.get(telegramId).getOrDefault(CategoryType.COUNTRY, List.of());
+        List<String> actors = usersFilterInput.get(telegramId)
+                .getOrDefault(CategoryType.ACTOR, List.of())
+                .stream()
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toList());
+
+        List<String> years = getOneFilterListFromCommonList(telegramId,CategoryType.YEAR);
+        List<String> ratings = getOneFilterListFromCommonList(telegramId,CategoryType.RATE);
+        List<String> genres = getOneFilterListFromCommonList(telegramId,CategoryType.GENRE);
+        List<String> duration = getOneFilterListFromCommonList(telegramId,CategoryType.DURATION);
+        List<String> countries = getOneFilterListFromCommonList(telegramId,CategoryType.COUNTRY);
 
         result.append("✨ Ваши текущие фильтры:\n\n");
 
