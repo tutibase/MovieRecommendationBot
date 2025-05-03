@@ -1,0 +1,28 @@
+= Руководство по API
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 2
+:sectlinks:
+
+[[get-users]]
+== Получение списка пользователей
+
+Запрос для получения списка зарегистрированных пользователей.
+
+=== HTTP-запрос
+
+include::{snippets}/get-users/http-request.adoc[]
+
+=== Параметры запроса
+
+include::{snippets}/get-users/query-parameters.adoc[]
+
+=== Пример ответа
+
+include::{snippets}/get-users/http-response.adoc[]
+
+=== Структура ответа
+
+include::{snippets}/get-users/response-fields.adoc[]
