@@ -47,10 +47,10 @@ public class WatchListDaoImpl implements WatchListDao {
     }
 
     @Override
-    public int deleteFromWatchList(long telegramId, int filmId) {
+    public int deleteFromWatchList(long telegramId, String filmTitle) {
         return dslContext.deleteFrom(WATCH_LIST)
                 .where(WATCH_LIST.TELEGRAM_ID.eq(telegramId))
-                .and(WATCH_LIST.FILM_ID.eq(filmId))
+                .and(WATCH_LIST.TITLE.eq(filmTitle))
                 .execute();
 
     }

@@ -24,6 +24,9 @@ public record FilmDto(
 ) {
     // Кастомный геттер для актеров
     public List<String> actors() {
+        if (personsData == null){
+            return List.of();
+        }
         return personsData.stream()
                 .filter(p -> "actor".equals(p.enProfession()))
                 .map(Person::name)
@@ -33,6 +36,9 @@ public record FilmDto(
 
     // Кастомный геттер для похожих фильмов
     public List<String> similarFilms() {
+        if (similarFilmsData == null){
+            return List.of();
+        }
         return similarFilmsData.stream()
                 .map(SimilarMovie::name)
                 .limit(3)
