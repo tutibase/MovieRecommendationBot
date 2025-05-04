@@ -512,12 +512,17 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 handleMainCommand(input, chatId, username);
                 break;
             case WAITING_FILM_TITLE_FOR_INF:
-                infoAboutFilmServiceService.getInfoAboutFilm(input).subscribeOn(Schedulers.boundedElastic())
+                infoAboutFilmServiceService.getInfoAboutFilm(input)
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .switchIfEmpty(Mono.fromRunnable(() -> {
+                            response.append("😕 Фильм \"").append(input).append("\" не найден. Проверьте название и повторите ввод.");
+                            sendResponse(chatId, response.toString());
+                            stateService.setState(chatId, UserState.WAITING_FILM_TITLE_FOR_INF);
+                        }))
                         .subscribe(
                                 result -> {
                                     response.append(result);
                                     sendResponseWithKeyboardMarkup(chatId, response.toString(),replyKeyboardMarkupMenu);
-
                                     stateService.setState(chatId, UserState.IDLE);
                                 }
                         );

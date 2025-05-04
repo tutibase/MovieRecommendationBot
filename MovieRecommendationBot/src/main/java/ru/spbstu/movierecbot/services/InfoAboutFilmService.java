@@ -25,7 +25,7 @@ public class InfoAboutFilmService {
                     String formattedInfo = formatFilmDetails(filmDto);
                     return Mono.just(formattedInfo);
                 })
-                .onErrorResume(error -> Mono.just("Ошибка при поиске фильма: " + error.getMessage()));
+                .onErrorResume(error -> Mono.empty());
     }
 
     public String formatFilmDetails(FilmDto film) {
