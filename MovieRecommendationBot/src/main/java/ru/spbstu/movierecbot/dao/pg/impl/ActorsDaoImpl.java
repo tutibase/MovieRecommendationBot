@@ -18,14 +18,15 @@ public class ActorsDaoImpl implements ActorsDao {
     }
 
     @Override
-    public int addActor(long telegramId, String fullName){
+    public int addActor(long telegramId, int actorId, String fullName){
         boolean exists = dslContext.fetchExists(
                 dslContext.selectFrom(ACTORS)
                         .where(ACTORS.TELEGRAM_ID.eq(telegramId))
-                        .and(ACTORS.FULL_NAME.eq(fullName)));
+                        .and(ACTORS.ACTOR_ID.eq(actorId)));
         if (!exists){
             return dslContext.insertInto(ACTORS)
                     .set(ACTORS.TELEGRAM_ID, telegramId)
+                    .set(ACTORS.ACTOR_ID, actorId)
                     .set(ACTORS.FULL_NAME, fullName)
                     .execute();
         }

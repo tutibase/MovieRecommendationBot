@@ -13,6 +13,7 @@
   <properties>
     <java.version>23</java.version>
     <spring.version>6.2.5</spring.version>
+    <spring.restdocs.version>3.0.0</spring.restdocs.version>
   </properties>
 
   <build>
@@ -26,6 +27,88 @@
           <source>${java.version}</source>
           <target>${java.version}</target>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.1.2</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-resources</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/static/docs</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.build.directory}/generated-snippets</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.asciidoctor</groupId>
+        <artifactId>asciidoctor-maven-plugin</artifactId>
+        <version>2.2.1</version>
+        <executions>
+          <execution>
+            <id>generate-docs</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>process-asciidoc</goal>
+            </goals>
+            <configuration>
+              <sourceDirectory>src/test/resources/asciidoc</sourceDirectory>
+              <outputDirectory>${project.build.directory}/docs</outputDirectory> <!-- Изменил тут -->
+              <preserveDirectories>true</preserveDirectories>
+              <backend>html</backend>
+              <attributes>
+                <snippets>${project.build.directory}/generated-snippets</snippets>
+              </attributes>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <!-- для корректной работы в Windows -->
+          <dependency>
+            <groupId>org.asciidoctor</groupId>
+            <artifactId>asciidoctorj</artifactId>
+            <version>2.5.7</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>create-output-dir</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.directory}/docs"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <!-- Maven Shade Plugin (для Fat JAR) -->
@@ -136,7 +219,7 @@
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-jdbc</artifactId>
-      <version>5.3.29</version>
+      <version>${spring.version}</version>
     </dependency>
 
 
@@ -186,10 +269,48 @@
     <!-- Testing (JUnit 5) -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <version>5.10.1</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- Spring test -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <version>${spring.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Spring REST Docs Core -->
+    <dependency>
+      <groupId>org.springframework.restdocs</groupId>
+      <artifactId>spring-restdocs-webtestclient</artifactId>
+      <version>${spring.restdocs.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.restdocs</groupId>
+      <artifactId>spring-restdocs-core</artifactId>
+      <version>${spring.restdocs.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- mockito-core -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.17.0</version>
+      <scope>test</scope>
+    </dependency>
+
 
     <!-- logs -->
     <dependency>
@@ -216,12 +337,6 @@
       <version>3.6</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>RELEASE</version>
-      <scope>test</scope>
-    </dependency>
 
   </dependencies>
 
