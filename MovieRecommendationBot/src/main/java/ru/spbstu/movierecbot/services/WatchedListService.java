@@ -67,7 +67,7 @@ public class WatchedListService {
                                 "Вывод фильмов за указанный период невозможен.");
                     }
 
-                    String header = "📽️ <b>Ваши просмотренные фильмы за период</b> " + period + ":\n\n";
+                    String header = "📽️ <b>Ваши просмотренные фильмы за период:</b> " + period + ":\n\n";
                     return buildFilmListResponse(telegramId, dateRange.startOfPeriod, dateRange.endOfPeriod, header);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
@@ -80,8 +80,8 @@ public class WatchedListService {
             List<WatchedFilmsRecord> filmList = watchedFilmsDao.getWatchedFilmsByAllPeriod(telegramId);
 
             if (filmList.isEmpty()) {
-                return result.append("🎬 Ваш киносписок пуст!\n" +
-                        "Самое время посмотреть что-то новое 😊").toString();
+                return result.append("🎬 Ваш список \"Просмотренные фильмы\" пуст!\n" +
+                        "Добавьте первый фильм с помощью /addToWatchedFilmsList").toString();
             }
 
             filmList.forEach(film -> {
@@ -140,7 +140,7 @@ public class WatchedListService {
                         FilmDto filmDto = userMarkOrReviewToFilm.get(telegramId);
                         watchedFilmsDao.addMarkToFilm(telegramId, filmDto.id(), intMark);
                         userMarkOrReviewToFilm.remove(telegramId);
-                        return "⭐ Вы оценили фильм \"" + filmDto.russianTitle() + "\" на " + intMark;
+                        return "⭐ Вы оценили фильм \"" + filmDto.russianTitle() + "\" на " + intMark + "/10";
                     })
                     .subscribeOn(Schedulers.boundedElastic());
         }
@@ -182,7 +182,7 @@ public class WatchedListService {
                     .getWatchedFilmsByExactPeriod(telegramId, startDate, endDate);
 
             if (filmList.isEmpty()) {
-                return result.append("📭 <b>У вас нет просмотренных фильмов за этот период</b>").toString();
+                return result.append("📭 <b>У вас нет просмотренных фильмов за этот период.</b>").toString();
             }
 
             filmList.forEach(film -> {
