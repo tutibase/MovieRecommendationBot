@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: movie_recommendation_db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/users_db.sql:/docker-entrypoint-initdb.d/users_db.sql
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: movie_recommendation_app
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_USERNAME: ${BOT_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      API_KEY: ${API_KEY}
+      HTTP_PORT: ${HTTP_PORT}
+      HTTP_HOST: ${HTTP_HOST}
+
+    depends_on:
+      - db
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:

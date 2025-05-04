@@ -149,7 +149,7 @@
         <configuration>
           <jdbc>
             <driver>org.postgresql.Driver</driver>
-            <url>jdbc:postgresql://localhost:5432/users_db</url>
+            <url>jdbc:postgresql://db:5432/users_db</url>
             <user>postgres</user>
             <password>password</password>
           </jdbc>

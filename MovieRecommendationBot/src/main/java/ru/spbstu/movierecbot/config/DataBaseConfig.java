@@ -19,10 +19,13 @@ public class DataBaseConfig {
     @Value("${db.password}")
     private String password;
 
+    @Value("${db.url}")
+    private String dbUrl;
+
     @Bean
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/users_db");
+        config.setJdbcUrl(dbUrl);
         config.setUsername(username);
         config.setPassword(password);
         config.setMaximumPoolSize(10);

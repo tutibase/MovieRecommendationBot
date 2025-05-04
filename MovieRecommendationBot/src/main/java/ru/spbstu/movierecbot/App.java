@@ -1,5 +1,6 @@
 package ru.spbstu.movierecbot;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
@@ -9,6 +10,8 @@ import ru.spbstu.movierecbot.config.AppConfig;
 
 
 public class App {
+    @Value("${http.port}") static Integer httpPort;
+    @Value("${http.host}") static String httpHost;
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
 
@@ -19,8 +22,8 @@ public class App {
 
         // Запускаем сервер
         HttpServer.create()
-                .host("localhost")
-                .port(8110)
+                .host(httpHost)
+                .port(httpPort)
                 .handle(new ReactorHttpHandlerAdapter(httpHandler))
                 .bindNow()
                 .onDispose()
