@@ -288,7 +288,7 @@ public class KeyboardService {
             case "\uD83D\uDC40 Посмотреть" -> Mono.just("/showFilters");
             case "✅ Применить" -> Mono.just("/applyFilters");
 
-            default -> Mono.just("Неизвестный текст с клавиатуры");
+            default -> Mono.just("Неизвестный текст с клавиатуры.");
         };
     }
 }
