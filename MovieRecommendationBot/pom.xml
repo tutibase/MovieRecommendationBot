@@ -11,7 +11,7 @@
   <url>http://maven.apache.org</url>
 
   <properties>
-    <java.version>23</java.version>
+    <java.version>21</java.version>
     <spring.version>6.2.5</spring.version>
     <spring.restdocs.version>3.0.0</spring.restdocs.version>
   </properties>
@@ -137,33 +137,20 @@
       <plugin>
         <groupId>org.jooq</groupId>
         <artifactId>jooq-codegen-maven</artifactId>
-        <version>3.16.5</version>
-        <executions>
-          <execution>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-          </execution>
-        </executions>
+        <version>3.18.4</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>1.19.3</version>
+          </dependency>
+        </dependencies>
         <configuration>
           <jdbc>
-            <driver>org.postgresql.Driver</driver>
-            <url>jdbc:postgresql://db:5432/users_db</url>
+            <url>jdbc:tc:postgresql:15:///users_db</url>
             <user>postgres</user>
             <password>password</password>
           </jdbc>
-          <generator>
-            <database>
-              <name>org.jooq.meta.postgres.PostgresDatabase</name>
-              <includes>.*</includes>
-              <inputSchema>public</inputSchema>
-            </database>
-            <target>
-              <packageName>ru.spbstu.movierecbot.dbClasses</packageName>
-              <directory>src/main/java</directory>
-            </target>
-          </generator>
         </configuration>
       </plugin>
 
