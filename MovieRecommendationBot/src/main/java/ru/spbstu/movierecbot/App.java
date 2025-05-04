@@ -4,20 +4,27 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
 import reactor.netty.http.server.HttpServer;
 import ru.spbstu.movierecbot.config.AppConfig;
 
-
+@Component
 public class App {
-    @Value("${http.port}") static Integer httpPort;
-    @Value("${http.host}") static String httpHost;
-    public static void main(String[] args) {
-        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+    private final Integer httpPort;
+    private final String httpHost;
 
-        // Автоконфигурация через @EnableWebFlux
+    public App(
+            @Value("${http.port}") Integer httpPort,
+            @Value("${http.host}") String httpHost
+    ) {
+        this.httpPort = httpPort;
+        this.httpHost = httpHost;
+    }
+
+    public void startServer() {
         HttpHandler httpHandler = WebHttpHandlerBuilder
-                .applicationContext(context)
+                .applicationContext(new AnnotationConfigApplicationContext(AppConfig.class))
                 .build();
 
         // Запускаем сервер
@@ -28,6 +35,14 @@ public class App {
                 .bindNow()
                 .onDispose()
                 .block();
-
     }
+
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+
+        App app = context.getBean(App.class);
+
+        app.startServer();
+    }
+
 }
