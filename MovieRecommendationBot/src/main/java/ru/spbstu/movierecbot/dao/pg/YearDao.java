@@ -5,7 +5,7 @@ import ru.spbstu.movierecbot.dbClasses.tables.records.YearsRecord;
 
 import java.util.List;
 
-@Repository
+
 public interface YearDao {
 
     //Добавление года в предпочтения
