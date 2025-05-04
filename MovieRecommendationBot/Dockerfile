@@ -15,7 +15,7 @@ COPY src ./src
 RUN mvn generate-sources
 
 # Собираем проект
-RUN mvn clean package -DskipTests
+RUN mvn clean package
 
 # Stage 2: Run the application
 FROM eclipse-temurin:21-jre
