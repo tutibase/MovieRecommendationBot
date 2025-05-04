@@ -9,6 +9,7 @@ import ru.spbstu.movierecbot.dao.filmapi.GenreApiDao;
 import ru.spbstu.movierecbot.dto.ActorDto;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +42,6 @@ public class CategoryCheckService {
 
         public CheckResultLists() {
             this.validInput = new ArrayList<String>();
-
             this.invalidInput = new ArrayList<String>();
             this.duplicatePreferences = new ArrayList<String>();
             this.addedPreferences = new ArrayList<String>();
@@ -50,7 +50,7 @@ public class CategoryCheckService {
         }
     }
 
-    public enum CategoryType{
+    public enum CategoryType {
         GENRE("genre", "жанры"),
         ACTOR("actor", "актеры"),
         YEAR("year", "годы"),
@@ -93,9 +93,17 @@ public class CategoryCheckService {
                     ? genreApiDao.getAllGenres().collectList().block()
                     : countryApiDao.getAllCountries().collectList().block();
 
+            // Создаем map для быстрого поиска оригинального значения по нижнему регистру
+            Map<String, String> lowerToOriginalMap = new HashMap<>();
+            availablePreferences.forEach(original -> {
+                lowerToOriginalMap.put(original.toLowerCase(), original);
+            });
+
             parsedInput.forEach(input -> {
-                if (availablePreferences.contains(input)) {
-                    checkResultLists.validInput.add(input);
+                String lowerInput = input.toLowerCase();
+                if (lowerToOriginalMap.containsKey(lowerInput)) {
+                    // Добавляем оригинальное значение из availablePreferences
+                    checkResultLists.validInput.add(lowerToOriginalMap.get(lowerInput));
                 } else {
                     checkResultLists.invalidInput.add(input);
                 }
@@ -103,7 +111,7 @@ public class CategoryCheckService {
             return checkResultLists;
         }
 
-        if (type == CategoryType.DURATION){
+        if (type == CategoryType.DURATION && parsedInput.size() > 1) {
             checkResultLists.invalidInput.addAll(parsedInput);
             return checkResultLists;
         }
@@ -147,10 +155,10 @@ public class CategoryCheckService {
                             invalidYears.add(String.valueOf(year));
                         }
                     }
-                    if (!validYears.isEmpty()){
+                    if (!validYears.isEmpty()) {
                         checkResultLists.validInput.addAll(validYears);
                     }
-                    if (!invalidYears.isEmpty()){
+                    if (!invalidYears.isEmpty()) {
                         checkResultLists.invalidInput.addAll(invalidYears);
                     }
                 } catch (NumberFormatException e) {
@@ -239,6 +247,8 @@ public class CategoryCheckService {
                     checkResultLists.invalidInput.add(input);
                 }
             }
+        } else {
+            checkResultLists.invalidInput.add(input);
         }
     }
 
