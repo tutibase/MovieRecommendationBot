@@ -85,7 +85,7 @@ public class InfoAboutFilmService {
     }
 
     public String formatRating(Double rating) {
-        return rating != null ? String.format("%.1f", rating) : "—";
+        return (rating != null && rating != 0) ? String.format("%.1f", rating) : "—";
     }
 
     public String formatGenres(List<FilmDto.Genre> genres) {
