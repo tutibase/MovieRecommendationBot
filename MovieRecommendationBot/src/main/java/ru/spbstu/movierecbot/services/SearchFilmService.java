@@ -100,7 +100,7 @@ public class SearchFilmService {
                             actors
                     );
 
-                    System.out.println(searchParamsDto);
+                    //System.out.println(searchParamsDto);
                     return filmDao.getFilmsByParams(searchParamsDto)
                             .collectList()
                             .flatMap(films -> {
@@ -110,7 +110,7 @@ public class SearchFilmService {
                                     result.append("✨ Вот найденные фильмы по вашим предпочтениям:\n\n");
                                     films.forEach(filmDto -> {
                                         String formattedInfo = infoAboutFilmService.formatFilmDetails(filmDto);
-                                        result.append(formattedInfo).append("\n");
+                                        result.append(formattedInfo).append("---CUTHERESPLITTER---");
                                     });
                                 }
                                 return Mono.just(result.toString());
@@ -208,6 +208,7 @@ public class SearchFilmService {
         }
         SearchParamsDto searchParamsDto = new SearchParamsDto(years, ratings, duration, genres, countries, actors);
 
+        //log.info(actors.toString() + "herehehe");
         return filmDao.getFilmsByParams(searchParamsDto)
                 .collectList()
                 .flatMap(films -> {
@@ -216,10 +217,10 @@ public class SearchFilmService {
                     if (films.isEmpty()) {
                         result.append("🤔 Не найдено ни одного фильма, подходящего под ваши фильтры поиска.");
                     } else {
-                        result.append("✨ Вот найденные фильмы по вашим фильтрам:\n\n");
+                        //result.append("✨ Вот найденные фильмы по вашим фильтрам:\n\n");
                         films.forEach(filmDto -> {
                             String formattedInfo = infoAboutFilmService.formatFilmDetails(filmDto);
-                            result.append(formattedInfo).append("\n");
+                            result.append(formattedInfo).append("---CUTHERESPLITTER---");
                         });
                     }
                     return Mono.just(result.toString());

@@ -382,9 +382,14 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 searchFilmService.searchFilmByPreferences(chatId).subscribeOn(Schedulers.boundedElastic())
                         .subscribe(
                                 result -> {
-                                    response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupSearch);
+                                    List<String> resultFilms = List.of(result.split("---CUTHERESPLITTER---"));
+
                                     stateService.setState(chatId, UserState.WAITING_SEARCH_COMMAND);
+                                    //response.append(result);
+                                    resultFilms.forEach(filmMessage -> {
+                                        sendResponseWithKeyboardMarkup(chatId, filmMessage, replyKeyboardMarkupSearch);
+                                    });
+
                                 }
                         );
                 break;
@@ -462,9 +467,18 @@ public class MovieRecBot extends TelegramLongPollingBot implements TelegramBot {
                 searchFilmService.applySearchFilters(chatId).subscribeOn(Schedulers.boundedElastic())
                         .subscribe(
                                 result -> {
-                                    response.append(result);
-                                    sendResponseWithKeyboardMarkup(chatId, response.toString(), replyKeyboardMarkupSearch);
+                                    List<String> resultFilms = List.of(result.split("---CUTHERESPLITTER---"));
+                                    if (!resultFilms.isEmpty()) {
+                                        sendResponseWithKeyboardMarkup(chatId, "✨ Вот найденные фильмы по вашим фильтрам:", replyKeyboardMarkupSearch);
+                                    } else {
+                                        sendResponseWithKeyboardMarkup(chatId, "К сожалению, не смог найти фильмы по вашим параметрам\uD83D\uDE22", replyKeyboardMarkupSearch);
+                                    }
                                     stateService.setState(chatId, UserState.WAITING_SEARCH_COMMAND);
+                                    //response.append(result);
+                                    resultFilms.forEach(filmMessage -> {
+                                        sendResponse(chatId, filmMessage);
+                                    });
+
                                 }
                         );
                 break;
