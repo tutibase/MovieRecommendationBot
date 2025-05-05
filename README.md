@@ -98,7 +98,24 @@
     psql -U postgres -f src/main/resources/users_db.sql
     ```
 
-4. Собрать и запустить:
+4. Заполнить значениями файл bot.properties из директории src/main/resources
+    ```declarative
+    bot.token=your_telegram_bot_token
+    bot.username=your_bot_username
+    
+    admin.password=your_password
+    
+    db.username=postgres
+    db.password=your_password
+    db.url=jdbc:postgresql://db:5432/users_db
+    
+    api.key=your_key_to_external_api
+    
+    http.port=8080
+    http.host=localhost
+    ```
+
+5. Собрать и запустить:
     ```bash
     mvn clean package
     java -jar target/MovieRecommendationBot-1.0-SNAPSHOT.jar
@@ -117,52 +134,57 @@
     DB_NAME=users_db
     DB_USERNAME=postgres
     DB_PASSWORD=your_password
+    DB_HOST=db
     DB_PORT=5432
-    DB_URL=jdbc:postgresql://db:5432/users_db
+    DB_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    
     BOT_TOKEN=your_telegram_bot_token
     BOT_USERNAME=your_bot_username
+    
     HTTP_PORT=8080
     HTTP_HOST=0.0.0.0
+
+    ADMIN_PASSWORD=your_password
+    
     API_KEY=your_key_to_external_api
     ```
 3. Создать файл docker-compose.yml:
-```
-version: '3.8'
-
-services:
-  db:
-    image: postgres:15
-    container_name: movie_recommendation_db
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ```
+    services:
+      db:
+        image: postgres:15
+        container_name: movie_recommendation_db
+        environment:
+          POSTGRES_DB: ${DB_NAME}
+          POSTGRES_USER: ${DB_USERNAME}
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+          - ./users_db.sql:/docker-entrypoint-initdb.d/users_db.sql
+        ports:
+          - "${DB_PORT}:${DB_PORT}"
+    
+      app:
+        image: lizokk/movierecommendationbot
+        container_name: movie_recommendation_app
+        env_file: .env
+        environment:
+          DB_URL: ${DB_URL}
+    
+        depends_on:
+          - db
+        ports:
+          - "${HTTP_PORT}:${HTTP_PORT}"
+    
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./users_db.sql:/docker-entrypoint-initdb.d/users_db.sql
-    ports:
-      - "${DB_PORT}:${DB_PORT}"
-
-  app:
-    image: lizokk/movierecommendationbot
-    container_name: movie_recommendation_app
-    env_file: .env
-    environment:
-      DB_URL: ${DB_URL}
-
-    depends_on:
-      - db
-    ports:
-      - "${HTTP_PORT}:${HTTP_PORT}"
-
-volumes:
-  postgres_data:
-```
+      postgres_data:
+    ```
 4. Скачать [sql-скрипт](MovieRecommendationBot/src/main/resources/users_db.sql) создания пользовательской базы данных
     и расположить в папке проекта на уровне с docker-compose.yml.  
 5. Запустить сервисы в терминале из папки с проектом:
    ```bash
-    docker-compose up -d
+    docker-compose up -d db
+    docker-compose up -d app
    ```
 6. Открыть Telegram-бот и начать использование.
 
