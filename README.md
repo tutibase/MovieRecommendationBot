@@ -126,36 +126,38 @@
     API_KEY=your_key_to_external_api
     ```
 3. Создать файл docker-compose.yml:
-    ```
-    version: '3.8'
-    services:
-    db:
+```
+version: '3.8'
+
+services:
+  db:
     image: postgres:15
+    container_name: movie_recommendation_db
     environment:
-    POSTGRES_DB: users_db
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: your_password
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-    - postgres_data:/var/lib/postgresql/data
-    - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+      - ./users_db.sql:/docker-entrypoint-initdb.d/users_db.sql
     ports:
-    - "5432:5432"
-    
-    app:
-    image: lizokk/movierecommendationbot:latest
+      - "${DB_PORT}:${DB_PORT}"
+
+  app:
+    image: lizokk/movierecommendationbot
+    container_name: movie_recommendation_app
+    env_file: .env
     environment:
-    BOT_TOKEN: your_telegram_token
-    DB_URL: jdbc:postgresql://db:5432/users_db
-    DB_USERNAME: postgres
-    DB_PASSWORD: your_password
-    ports:
-    - "8080:8080"
+      DB_URL: ${DB_URL}
+
     depends_on:
-    - db
-    
-    volumes:
-    postgres_data:
-   ```
+      - db
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+
+volumes:
+  postgres_data:
+```
 
 4. Запустить сервисы в терминале из папки с проектом:
    ```bash
