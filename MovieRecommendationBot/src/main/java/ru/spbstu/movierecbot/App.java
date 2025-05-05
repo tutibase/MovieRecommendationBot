@@ -22,9 +22,9 @@ public class App {
         this.httpHost = httpHost;
     }
 
-    public void startServer() {
+    public void startServer(AnnotationConfigApplicationContext context) {
         HttpHandler httpHandler = WebHttpHandlerBuilder
-                .applicationContext(new AnnotationConfigApplicationContext(AppConfig.class))
+                .applicationContext(context)
                 .build();
 
         // Запускаем сервер
@@ -42,7 +42,7 @@ public class App {
 
         App app = context.getBean(App.class);
 
-        app.startServer();
+        app.startServer(context);
     }
 
 }
