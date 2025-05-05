@@ -162,12 +162,7 @@
     docker pull lizokk/movierecommendationbot
     docker-compose up -d
    ```
-5. Запустить сервисы в терминале из папки с проектом:
-   ```bash
-    docker pull lizokk/movierecommendationbot
-    docker-compose up -d
-   ```
-6. Открыть Telegram-бота и начать использование.
+5. Открыть Telegram-бота и начать использование.
 
 
 ## Структура проекта
@@ -227,7 +222,7 @@
 - `exception`: обработка неавторизованных запросов.
 
 
-### Генерация API документации
+## Генерация API документации
 
 Для автоматической генерации документации API используется Spring Rest Docs.  
 Документация создается на основе тестов, расположенных в папке `src/test/java/ru/spbstu/movierecbot/controller`.
