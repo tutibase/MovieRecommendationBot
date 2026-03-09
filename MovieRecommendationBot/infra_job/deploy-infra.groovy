@@ -53,7 +53,7 @@ pipeline {
                         def stackStatus = sh(
                                 script: '''
                         set +x
-                        source $OPENSTACK_RC
+                        . $OPENSTACK_RC
                         openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null || echo "NOT_FOUND"
                     '''.stripIndent(),
                                 returnStdout: true
@@ -63,7 +63,7 @@ pipeline {
                             echo "⚠️ Stack exists with status: ${stackStatus}. Cleaning up..."
                             sh '''
                         set +x
-                        source $OPENSTACK_RC
+                        . $OPENSTACK_RC
                         openstack stack delete --yes ${STACK_NAME}
                     '''
 
@@ -90,7 +90,7 @@ pipeline {
                         variable: 'OPENSTACK_RC')]) {
                     sh '''
                         set +x
-                        source $OPENSTACK_RC
+                        . $OPENSTACK_RC
                         echo "🔍 Validating Heat template..."
                         openstack stack template validate -t ${HEAT_TEMPLATE}
                     '''
