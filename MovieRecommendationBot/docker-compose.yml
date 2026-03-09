@@ -25,12 +25,11 @@ services:
     container_name: movie-bot-poly
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-users_db}
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-users_db}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_DB_PASSWORD:?error}
-      # Telegram bot config
-      TELEGRAM_BOT_TOKEN: ${BOT_TOKEN:?error}
-      BOT_USERNAME: ${BOT_USERNAME:-MovieRecommendationBot}
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_USERNAME: ${BOT_USERNAME}
       # App config
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?error}
       API_KEY: ${API_KEY:?error}
