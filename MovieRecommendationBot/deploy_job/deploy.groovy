@@ -44,7 +44,7 @@ pipeline {
 
         stage('Copy Files to VM') {
             steps {
-                sshagent(["${SSH_KEY_NAME}"]) {
+                sshagent(["${SSH_KEY}"]) {
                     sh '''
                 echo "📁 Copying files to ${env.VM_IP}..."
                 
