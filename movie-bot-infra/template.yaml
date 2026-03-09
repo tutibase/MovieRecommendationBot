@@ -1,0 +1,42 @@
+heat_template_version: 2015-04-30
+
+description: Шаблон для создания сервера Movie Bot
+
+parameters:
+  key_name:
+    type: string
+    description: Имя SSH ключа
+    default: Bogdanova
+
+resources:
+  movie_bot_instance:
+    type: OS::Nova::Server
+    properties:
+      # Имя инстанса
+      name: bogdanova-movie-bot-vm
+
+      # Образ (Source).
+      image: ununtu-22.04
+
+      # Тип инстанса (Flavor)
+      flavor: m1.small
+
+      # Ключевая пара (берется из параметров выше)
+      key_name: { get_param: key_name }
+
+      # Сеть и подсеть
+      networks:
+        - network: sutdents-net
+        - subnet: students-subnet
+
+      # Группа безопасности
+      security_groups:
+        - default
+
+      # Зона доступности
+      availability_zone: nova
+
+      # Дополнительные настройки
+      user_data: |
+        #!/bin/bash
+        echo "Сервер успешно создан и запущен!" > /tmp/infra_ready.txt
