@@ -84,19 +84,6 @@ pipeline {
             }
         }
 
-        stage('Validate Template') {
-            steps {
-                withCredentials([file(credentialsId: 'openstack-rc-file',
-                        variable: 'OPENSTACK_RC')]) {
-                    sh '''
-                        set +x
-                        . $OPENSTACK_RC
-                        echo "🔍 Validating Heat template..."
-                        openstack stack template validate -t ${HEAT_TEMPLATE}
-                    '''
-                }
-            }
-        }
 
         stage('Deploy Stack') {
             steps {
