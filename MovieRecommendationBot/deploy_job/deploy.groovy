@@ -14,9 +14,6 @@ pipeline {
         // Files
         COMPOSE_FILE = "MovieRecommendationBot/docker-compose.yml"
         INIT_SQL = "MovieRecommendationBot/src/main/resources/users_db.sql"
-
-        // Initialize for availability in post
-        VM_IP = ''
     }
 
     stages {
