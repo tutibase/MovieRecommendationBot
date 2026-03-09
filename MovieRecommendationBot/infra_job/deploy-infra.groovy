@@ -112,22 +112,17 @@ pipeline {
 
         stage('Get Outputs') {
             steps {
-                script {
-                    withCredentials([file(credentialsId: 'openstack-rc-file',
-                            variable: 'OPENSTACK_RC')]) {
-                        def output = sh(
-                                script: ". \$OPENSTACK_RC && openstack stack output show -c output_value -f value ${STACK_NAME} server_private_ip",
-                                returnStdout: true
-                        ).trim()
-                        echo "Server IP: ${output}"
-                        env.SERVER_IP = output
-
-                        // Сохраняем все выводы в файл для архивации
-                        sh '''
-                            . $OPENSTACK_RC
-                            openstack stack output show --all --format json ${STACK_NAME} > stack_outputs.json
-                        '''
-                    }
+                withCredentials([file(credentialsId: 'openstack-rc-file', variable: 'OPENSTACK_RC')]) {
+                    sh '''
+                . $OPENSTACK_RC
+                
+                # Сохраняем каждый вывод отдельно в простой формат
+                echo "{" > ${STACK_OUTPUTS}
+                echo "  \"server_private_ip\": \"$(openstack stack output show -c output_value -f value ${STACK_NAME} server_private_ip)\"," >> ${STACK_OUTPUTS}
+                echo "  \"server_name\": \"$(openstack stack output show -c output_value -f value ${STACK_NAME} server_name)\"," >> ${STACK_OUTPUTS}
+                echo "  \"ssh_command\": \"$(openstack stack output show -c output_value -f value ${STACK_NAME} ssh_command)\"" >> ${STACK_OUTPUTS}
+                echo "}" >> ${STACK_OUTPUTS}
+            '''
                 }
             }
         }
