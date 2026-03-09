@@ -29,7 +29,7 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                    sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -f Dockerfile ."
+                    sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG}"
                     env.DOCKER_IMAGE_BUILT = "${DOCKER_IMAGE}:${IMAGE_TAG}"
                 }
             }
