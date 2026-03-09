@@ -44,26 +44,27 @@ pipeline {
 
         stage('Copy Files to VM') {
             steps {
-                sh '''
-                    echo " Copying files to ${VM_IP}..."
-                    
-                    # Создаём директорию на ВМ
-                    ssh -o StrictHostKeyChecking=no -i ~jenkins-poly/.ssh/${SSH_KEY} ubuntu@${VM_IP} "
-                        mkdir -p ${APP_DIR}/init-db
-                    "
-                    
-                    # Копируем docker-compose.yml
-                    scp -i ~jenkins-poly/.ssh/${SSH_KEY} \
-                        ${COMPOSE_FILE} \
-                        ubuntu@${VM_IP}:${APP_DIR}/docker-compose.yml
-                    
-                    # Копируем скрипт инициализации БД
-                    scp -i ~jenkins-poly/.ssh/${SSH_KEY} \
-                        ${INIT_SQL} \
-                        ubuntu@${VM_IP}:${APP_DIR}/init-db/users_db.sql
-                    
-                    echo "✅ Files copied successfully"
-                '''
+                sshagent(credentials: ['ssh-key-lugov']) {
+                    sh '''
+                echo "📁 Copying files to ${env.VM_IP}..."
+                
+                # Создаём директорию
+                ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
+                    mkdir -p /opt/movie-bot/init-db
+                "
+                
+                # Копируем файлы
+                scp -o StrictHostKeyChecking=no \
+                    MovieRecommendationBot/docker-compose.yml \
+                    ubuntu@${env.VM_IP}:/opt/movie-bot/
+                
+                scp -o StrictHostKeyChecking=no \
+                    MovieRecommendationBot/src/main/resources/users_db.sql \
+                    ubuntu@${env.VM_IP}:/opt/movie-bot/init-db/
+                
+                echo "✅ Files copied"
+            '''
+                }
             }
         }
 
