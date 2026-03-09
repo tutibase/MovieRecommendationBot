@@ -7,12 +7,12 @@ exec > /var/log/install-deps.log 2>&1
 echo "=== Install Dependencies Started at $(date) ==="
 
 # Обновление пакетов
-echo "📦 Updating packages..."
+echo "Updating packages..."
 apt-get update
 apt-get upgrade -y
 
 # Установка Docker
-echo "🐳 Installing Docker..."
+echo "Installing Docker..."
 curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
 sh /tmp/get-docker.sh
 
@@ -20,7 +20,7 @@ sh /tmp/get-docker.sh
 usermod -aG docker ubuntu
 
 # Проверка установки
-echo "✅ Docker version:"
+echo "Docker version:"
 docker --version
 
 # Создание директории для приложения
@@ -29,4 +29,4 @@ mkdir -p /opt/movie-bot
 chown ubuntu:ubuntu /opt/movie-bot
 
 echo "=== Install Dependencies Completed at $(date) ==="
-echo "🚀 Server is ready for Docker deployment"
+echo "Server is ready for Docker deployment"
