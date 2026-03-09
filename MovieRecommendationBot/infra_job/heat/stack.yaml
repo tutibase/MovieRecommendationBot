@@ -1,0 +1,99 @@
+heat_template_version: 2018-08-31
+
+description: |
+  Шаблон для развёртывания сервера под Movie Recommendation Bot
+  (инфраструктура в приватной сети + установка Docker)
+
+parameters:
+  key_name:
+    type: string
+    label: SSH Key
+    description: Имя SSH-ключа для доступа к инстансу
+    default: lugov-key-pair
+
+  image_id:
+    type: string
+    label: Image
+    description: Образ ОС для инстанса
+    default: ubuntu-22.04
+
+  flavor_id:
+    type: string
+    label: Flavor
+    description: Размер инстанса
+    default: m1.small
+
+  existing_subnet_id:
+    type: string
+    label: Existing Subnet ID
+    description: ID подсети для инстанса
+    default: d80da048-c188-45a5-80e4-55d914fe58ea
+
+resources:
+  bot_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: bot-sg
+      description: "Security group for movie-recommendation-bot"
+      rules:
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+          description: "SSH access"
+        - protocol: tcp
+          port_range_min: 8110
+          port_range_max: 8110
+          remote_ip_prefix: 0.0.0.0/0
+          description: "App HTTP port"
+
+  bot_server:
+    type: OS::Nova::Server
+    properties:
+      name: poly-bot-vm
+      image: { get_param: image_id }
+      flavor: { get_param: flavor_id }
+      key_name: { get_param: key_name }
+      networks:
+        - subnet: { get_param: existing_subnet_id }
+      security_groups:
+        - { get_resource: bot_security_group }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            set -e
+            exec > /var/log/cloud-init-output.log 2>&1
+            echo "=== Cloud-init started at $(date) ==="
+            curl -fsSL "https://raw.githubusercontent.com/tutibase/MovieRecommendationBot/poly_deploy/scripts/install-deps.sh" -o /tmp/install-deps.sh
+            chmod +x /tmp/install-deps.sh
+            /tmp/install-deps.sh
+            echo "=== Bootstrap completed at $(date) ==="
+          params: {}
+
+outputs:
+  server_private_ip:
+    description: Private IP address
+    value: { get_attr: [bot_server, first_address] }
+
+  server_name:
+    description: Server name
+    value: { get_attr: [bot_server, name] }
+
+  ssh_command:
+    description: SSH command
+    value:
+      str_replace:
+        template: "ssh -i <key-path> ubuntu@{ip}"
+        params:
+          ip: { get_attr: [bot_server, first_address] }
+
+  ready_message:
+    description: Next steps
+    value: |
+      Server is ready!
+      - SSH: ssh -i <key> ubuntu@<private-ip>
+      - Docker: installed and ready
+      - App dir: /opt/movie-bot
+      - Next: deploy container from Docker Hub
