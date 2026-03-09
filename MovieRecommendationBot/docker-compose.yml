@@ -27,7 +27,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-users_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-users_db}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?error}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_DB_PASSWORD:?error}
       # Telegram bot config
       TELEGRAM_BOT_TOKEN: ${BOT_TOKEN:?error}
       BOT_USERNAME: ${BOT_USERNAME:-MovieRecommendationBot}
