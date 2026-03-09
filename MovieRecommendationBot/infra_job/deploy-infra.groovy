@@ -9,7 +9,7 @@ pipeline {
     environment {
         STACK_NAME = "movie-bot-infra-${env.BUILD_NUMBER}"
         HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job/heat/stack.yaml'
-        OS_IMAGE = 'ubuntu-22.04'
+        OS_IMAGE = 'ununtu-22.04'
 
         OS_FLAVOR = 'm1.small'
         SSH_KEY = 'lugov-key-pair'
