@@ -14,7 +14,7 @@ pipeline {
 
     environment {
         STACK_NAME = "movie-bot-infra-${env.BUILD_NUMBER}"
-        HEAT_TEMPLATE = 'heat/stack.yaml'
+        HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job/heat/stack.yaml'
     }
 
     stages {
