@@ -33,11 +33,6 @@ pipeline {
                     env.DOCKER_IMAGE_BUILT = "${DOCKER_IMAGE}:${IMAGE_TAG}"
                 }
             }
-            post {
-                always {
-                    sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
-                }
-            }
         }
 
         stage('Tag & Push') {
@@ -66,6 +61,7 @@ pipeline {
 
     post {
         always {
+            sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
             cleanWs()
         }
         failure {
