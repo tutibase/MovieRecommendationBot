@@ -30,9 +30,12 @@ pipeline {
                 script {
                     echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
                     sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -f Dockerfile ."
-
-                    // Сохраняем для удобства
                     env.DOCKER_IMAGE_BUILT = "${DOCKER_IMAGE}:${IMAGE_TAG}"
+                }
+            }
+            post {
+                always {
+                    sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
                 }
             }
         }
@@ -47,18 +50,13 @@ pipeline {
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                     )]) {
-                        // Авторизация
                         sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-
-                        // Push основного тега
                         sh "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
 
-                        // Tag + Push latest
                         echo "Tagging as latest..."
                         sh "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
                         sh "docker push ${DOCKER_IMAGE}:latest"
 
-                        // Выход
                         sh "docker logout"
                     }
                 }
@@ -68,9 +66,6 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up..."
-            // Удаляем оба тега, чтобы не занимать место
-            sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
             cleanWs()
         }
         failure {
