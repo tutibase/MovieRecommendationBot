@@ -18,7 +18,7 @@ pipeline {
     stages {
         stage('Get Infrastructure Info') {
             steps {
-                // Копируем outputs из Лабы 3 (задача 'infra')
+                // Копируем outputs из Лабы 3
                 copyArtifacts projectName: 'infra',
                         selector: lastSuccessful(),
                         filter: STACK_OUTPUTS,
@@ -26,14 +26,18 @@ pipeline {
                         flatten: true
 
                 script {
-                    // Парсим JSON и извлекаем IP
+                    // Парсим JSON (массив объектов)
                     def outputs = readJSON file: STACK_OUTPUTS
-                    env.VM_IP = outputs.server_private_ip?.output_value ?: ''
 
-                    if (!env.VM_IP) {
-                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
+                    // Ищем нужный output в массиве
+                    def privateIpOutput = outputs.find { it.output_key == 'server_private_ip' }
+
+                    if (privateIpOutput && privateIpOutput.output_value) {
+                        env.VM_IP = privateIpOutput.output_value
+                        echo "🌐 Target VM IP: ${env.VM_IP}"
+                    } else {
+                        error("❌ Could not find server_private_ip in ${STACK_OUTPUTS}")
                     }
-                    echo "🌐 Target VM IP: ${env.VM_IP}"
                 }
             }
         }
