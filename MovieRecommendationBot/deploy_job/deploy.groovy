@@ -25,13 +25,8 @@ pipeline {
                         flatten: true
 
                 script {
-                    // 🔹 Уровень 1: читаем файл как JSON
                     def outputs = readJSON file: STACK_OUTPUTS
-
-                    // 🔹 Уровень 2: значение — это строка с JSON, парсим её
                     def privateIpJson = readJSON text: outputs.server_private_ip
-
-                    // 🔹 Извлекаем финальное значение
                     env.VM_IP = privateIpJson.output_value
 
                     if (!env.VM_IP) {
@@ -48,12 +43,10 @@ pipeline {
                     sh """
                 echo "📁 Copying files to ${env.VM_IP}..."
                 
-                # Создаём директорию
                 ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                     mkdir -p /opt/movie-bot/init-db
                 "
                 
-                # Копируем файлы
                 scp -o StrictHostKeyChecking=no \\
                     MovieRecommendationBot/docker-compose.yml \\
                     ubuntu@${env.VM_IP}:/opt/movie-bot/
@@ -76,6 +69,10 @@ pipeline {
                         string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
                         string(credentialsId: 'api-key', variable: 'API_KEY')
                 ]) {
+                    script {
+                        // 🔐 Минимальная отладка пароля
+                        echo "🔐 POSTGRES_DB_PASSWORD: length=${POSTGRES_DB_PASSWORD?.length() ?: 0}"
+                    }
                     sshagent([SSH_KEY]) {
                         sh """
                     echo "Deploying to ${env.VM_IP}..."
@@ -83,7 +80,6 @@ pipeline {
                     ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                         cd ${APP_DIR}
                         
-                        # ✅ Простой способ создать .env (без heredoc)
                         echo 'Creating .env file...'
                         printf '%s\\n' \\
                             'DB_NAME=users_db' \\
@@ -97,6 +93,10 @@ pipeline {
                             'HTTP_PORT=8110' \\
                             'HTTP_HOST=0.0.0.0' \\
                             > .env
+                        
+                        # 🔍 Проверка, что .env создался
+                        echo 'Verifying .env...'
+                        grep -c 'POSTGRES_DB_PASSWORD' .env && echo '✅ POSTGRES_DB_PASSWORD in .env'
                         
                         echo 'Pulling images...'
                         docker compose pull
@@ -123,36 +123,40 @@ pipeline {
             steps {
                 timeout(time: 3, unit: 'MINUTES') {
                     sshagent([SSH_KEY]) {
-                        sh """
+                        // ✅ Используем '''...''' чтобы избежать проблем с экранированием
+                        sh '''
                     echo "Waiting for app to be healthy..."
                     
-                    ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
-                        timeout 180 bash -c '
-                            echo \"  Checking containers...\"
-                            while ! docker compose ps -q app 2>/dev/null | xargs -r docker inspect --format=\"{{.State.Status}}\" 2>/dev/null | grep -q running; do
-                                echo \"    Waiting for app container...\"
-                                sleep 5
-                            done
-                            echo \"  ✅ App container is running\"
-                            
-                            echo \"  Checking logs...\"
-                            # ✅ Упрощённый паттерн без спецсимволов
-                            if docker compose logs app --tail=50 2>&1 | grep -qiE \"error|exception|failed|connection\"; then
-                                echo \"  ⚠️ Warning: potential errors in logs\"
-                                docker compose logs app --tail=20
-                            else
-                                echo \"  ✅ No critical errors detected\"
+                    ssh -o StrictHostKeyChecking=no ubuntu@${VM_IP} '
+                        set -e
+                        echo "  Checking containers..."
+                        
+                        # Ждём, пока контейнер app не станет running
+                        for i in {1..36}; do
+                            if docker compose ps -q app 2>/dev/null | xargs -r docker inspect --format="{{.State.Status}}" 2>/dev/null | grep -q running; then
+                                echo "  ✅ App container is running"
+                                break
                             fi
-                            
-                            echo \"  Checking DB...\"
-                            if docker compose exec -T db pg_isready -U users_db -d users_db 2>/dev/null | grep -q \"accepting\"; then
-                                echo \"  ✅ Database is ready\"
-                            else
-                                echo \"  ⚠️ Database may not be ready yet\"
-                            fi
-                        '
-                    "
-                """
+                            echo "    Waiting for app container... ($i/36)"
+                            sleep 5
+                        done
+                        
+                        echo "  Checking logs..."
+                        if docker compose logs app --tail=50 2>&1 | grep -qiE "error|exception|failed|connection"; then
+                            echo "  ⚠️ Warning: potential errors in logs"
+                            docker compose logs app --tail=20 || true
+                        else
+                            echo "  ✅ No critical errors detected"
+                        fi
+                        
+                        echo "  Checking DB..."
+                        if docker compose exec -T db pg_isready -U users_db -d users_db 2>/dev/null | grep -q "accepting"; then
+                            echo "  ✅ Database is ready"
+                        else
+                            echo "  ⚠️ Database may not be ready yet"
+                        fi
+                    '
+                '''
                     }
                 }
             }
