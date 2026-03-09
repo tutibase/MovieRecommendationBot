@@ -27,7 +27,6 @@ resources:
       # Сеть и подсеть
       networks:
         - network: sutdents-net
-        - subnet: students-subnet
 
       # Группа безопасности
       security_groups:
