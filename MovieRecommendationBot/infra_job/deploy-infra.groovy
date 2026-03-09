@@ -28,7 +28,7 @@ pipeline {
                             variable: 'OPENSTACK_RC')]) {
                         sh '''
                             set +x  # Не логировать чувствительные данные
-                            source $OPENSTACK_RC
+                            . $OPENSTACK_RC
                             
                             echo "📡 Checking connection to OpenStack..."
                             openstack token issue -f yaml
