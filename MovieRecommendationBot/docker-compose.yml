@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-users_db}
       POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD:?error}
     volumes:
-      - postgres_data/var/lib/postgresql/data
+      - postgres_data:var/lib/postgresql/data
       - ./init-db/users_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app-network
