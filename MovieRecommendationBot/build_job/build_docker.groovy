@@ -20,7 +20,7 @@ pipeline {
                 copyArtifacts projectName: 'Lab2-Build',
                         selector: lastSuccessful(),
                         target: 'target/',
-                        filter: '*.jar',
+                        filter: '**/*.jar',
                         flatten: true
             }
         }
