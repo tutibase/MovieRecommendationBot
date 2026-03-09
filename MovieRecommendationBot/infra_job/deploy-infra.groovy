@@ -107,7 +107,7 @@ pipeline {
                         //Используем флаг --wait для ожидания завершения
                         sh '''
                             set +x
-                            source $OPENSTACK_RC
+                            . $OPENSTACK_RC
                             
                             echo "Deploying infrastructure..."
                             openstack stack create \
@@ -132,7 +132,7 @@ pipeline {
                     withCredentials([file(credentialsId: 'openstack-rc-file',
                             variable: 'OPENSTACK_RC')]) {
                         def output = sh(
-                                script: "source \$OPENSTACK_RC && openstack stack output show -c output_value -f value ${STACK_NAME} server_private_ip",
+                                script: ". \$OPENSTACK_RC && openstack stack output show -c output_value -f value ${STACK_NAME} server_private_ip",
                                 returnStdout: true
                         ).trim()
                         echo "🌐 Server IP: ${output}"
@@ -140,7 +140,7 @@ pipeline {
 
                         // Сохраняем все выводы в файл для архивации
                         sh '''
-                            source $OPENSTACK_RC
+                            . $OPENSTACK_RC
                             openstack stack output show --all --format json ${STACK_NAME} > stack_outputs.json
                         '''
                     }
@@ -165,7 +165,7 @@ pipeline {
                     variable: 'OPENSTACK_RC')]) {
                 sh '''
                     set +x
-                    source $OPENSTACK_RC
+                    . $OPENSTACK_RC
                     
                     # Проверяем, существует ли стек, перед удалением
                     if openstack stack show ${STACK_NAME} &>/dev/null; then
