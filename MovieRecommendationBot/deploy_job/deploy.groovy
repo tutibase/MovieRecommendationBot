@@ -14,6 +14,9 @@ pipeline {
         // Files
         COMPOSE_FILE = "MovieRecommendationBot/docker-compose.yml"
         INIT_SQL = "MovieRecommendationBot/src/main/resources/users_db.sql"
+
+        // Initialize for availability in post
+        VM_IP = ''
     }
 
     stages {
@@ -72,13 +75,13 @@ pipeline {
                 ]) {
                     sshagent([SSH_KEY]) {
                         sh """
-                            echo "Deploying to ${env.VM_IP}..."
+                            echo "🚀 Deploying to ${env.VM_IP}..."
                             
                             ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                                 cd ${APP_DIR}
                                 
                                 # Create .env file - SIMPLE approach
-                                echo 'Creating .env file...'
+                                echo '🔐 Creating .env file...'
                                 printf '%s\\n' \\
                                     'DB_NAME=users_db' \\
                                     'DB_USERNAME=users_db' \\
@@ -91,19 +94,19 @@ pipeline {
                                     'HTTP_HOST=0.0.0.0' \\
                                     > .env
                                 
-                                echo 'Pulling images...'
+                                echo '📥 Pulling images...'
                                 docker compose pull
                                 
-                                echo 'Stopping old containers...'
+                                echo '🔄 Stopping old containers...'
                                 docker compose down || true
                                 
-                                echo 'Starting containers...'
+                                echo '🎬 Starting containers...'
                                 docker compose up -d --force-recreate
                                 
-                                echo 'Waiting for services...'
+                                echo '⏳ Waiting for services...'
                                 sleep 15
                                 
-                                echo 'Checking status...'
+                                echo '📊 Checking status...'
                                 docker compose ps
                             "
                         """
@@ -154,13 +157,15 @@ pipeline {
     post {
         success {
             echo "✅ App deployed successfully!"
-            echo "Telegram bot should be running"
-            echo "App URL: http://${env.VM_IP}:8110"
+            echo "🔗 Telegram bot should be running"
+            echo "🌐 App URL: http://${env.VM_IP}:8110"
         }
         failure {
             echo "❌ Deployment failed!"
-            if (env.VM_IP) {
-                echo "🔍 Debug: ssh ubuntu@${env.VM_IP} 'docker compose logs app --tail=50'"
+            script {
+                if (env.VM_IP) {
+                    echo "🔍 Debug: ssh ubuntu@${env.VM_IP} 'docker compose logs app'"
+                }
             }
         }
         always {
