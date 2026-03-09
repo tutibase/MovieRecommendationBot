@@ -44,8 +44,8 @@ pipeline {
 
         stage('Copy Files to VM') {
             steps {
-                sshagent(["${SSH_KEY}"]) {
-                    sh '''
+                sshagent([SSH_KEY]) {
+                    sh """
                 echo "📁 Copying files to ${env.VM_IP}..."
                 
                 # Создаём директорию
@@ -54,16 +54,16 @@ pipeline {
                 "
                 
                 # Копируем файлы
-                scp -o StrictHostKeyChecking=no \
-                    MovieRecommendationBot/docker-compose.yml \
+                scp -o StrictHostKeyChecking=no \\
+                    MovieRecommendationBot/docker-compose.yml \\
                     ubuntu@${env.VM_IP}:/opt/movie-bot/
                 
-                scp -o StrictHostKeyChecking=no \
-                    MovieRecommendationBot/src/main/resources/users_db.sql \
+                scp -o StrictHostKeyChecking=no \\
+                    MovieRecommendationBot/src/main/resources/users_db.sql \\
                     ubuntu@${env.VM_IP}:/opt/movie-bot/init-db/
                 
                 echo "✅ Files copied"
-            '''
+            """
                 }
             }
         }
