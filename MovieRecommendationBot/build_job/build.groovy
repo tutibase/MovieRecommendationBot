@@ -12,12 +12,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-                echo "Code checked out"
-            }
-        }
 
         stage('Database Setup') {
             steps {
