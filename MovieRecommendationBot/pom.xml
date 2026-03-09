@@ -163,6 +163,12 @@
             <password>${db.password}</password>
           </jdbc>
           <generator>
+            <database>
+              <name>org.jooq.meta.postgres.PostgresDatabase</name>
+              <inputCatalog>users_db</inputCatalog>
+              <inputSchema>public</inputSchema>
+              <includes>.*</includes>
+            </database>
             <target>
               <packageName>ru.spbstu.movierecbot.dbClasses</packageName>
               <directory>src/main/java</directory>
