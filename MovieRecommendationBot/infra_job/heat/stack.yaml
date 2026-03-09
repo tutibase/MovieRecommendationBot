@@ -34,7 +34,6 @@ resources:
     type: OS::Neutron::SecurityGroup
     properties:
       name: bot-sg
-      description: "Security group for movie-recommendation-bot"
       rules:
         - protocol: tcp
           port_range_min: 22
