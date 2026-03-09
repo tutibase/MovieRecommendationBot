@@ -49,50 +49,35 @@ pipeline {
         stage('Check & Cleanup Existing Stack') {
             steps {
                 script {
-                    echo "🔍 Checking if stack '${STACK_NAME}' exists..."
-                    withCredentials([file(credentialsId: 'openstack-rc-file',
-                            variable: 'OPENSTACK_RC')]) {
-                        script {
-                            // Проверяем существование стека
-                            def stackStatus = sh(
-                                    script: '''
-                                    set +x
-                                    source $OPENSTACK_RC
-                                    openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null || echo "NOT_FOUND"
-                                '''.stripIndent(),
-                                    returnStdout: true
-                            ).trim()
+                    withCredentials([file(credentialsId: 'openstack-rc-file', variable: 'OPENSTACK_RC')]) {
+                        def stackStatus = sh(
+                                script: '''
+                        set +x
+                        source $OPENSTACK_RC
+                        openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null || echo "NOT_FOUND"
+                    '''.stripIndent(),
+                                returnStdout: true
+                        ).trim()
 
-                            if (stackStatus == 'NOT_FOUND') {
-                                echo "✅ Stack '${STACK_NAME}' does not exist. Proceeding with creation."
-                            } else {
-                                echo "⚠️ Stack exists with status: ${stackStatus}"
+                        if (stackStatus != 'NOT_FOUND') {
+                            echo "⚠️ Stack exists with status: ${stackStatus}. Cleaning up..."
+                            sh '''
+                        set +x
+                        source $OPENSTACK_RC
+                        openstack stack delete --yes ${STACK_NAME}
+                    '''
 
-                                // Удаляем только если включён параметр FORCE_CLEANUP
-                                if (params.FORCE_CLEANUP) {
-                                    echo "FORCE_CLEANUP enabled. Deleting existing stack..."
-                                    sh '''
-                                        set +x
-                                        source $OPENSTACK_RC
-                                        openstack stack delete --yes ${STACK_NAME}
-                                    '''
-
-                                    // Ждём полного удаления
-                                    echo "⏳ Waiting for stack deletion..."
-                                    timeout(time: 5, unit: 'MINUTES') {
-                                        sh '''
-                                            while openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null | grep -q .; do
-                                                echo "  Still deleting... (sleep 5s)"
-                                                sleep 5
-                                            done
-                                            echo "✅ Stack deleted"
-                                        '''
-                                    }
-                                } else {
-                                    echo "⚠️ Stack exists and FORCE_CLEANUP=false. Build will likely fail."
-                                    echo "💡 Tip: Run with parameter FORCE_CLEANUP=true to auto-delete first."
-                                }
+                            echo "⏳ Waiting for deletion..."
+                            timeout(time: 5, unit: 'MINUTES') {
+                                sh '''
+                            while openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null | grep -q .; do
+                                sleep 5
+                            done
+                        '''
                             }
+                            echo "✅ Stack deleted"
+                        } else {
+                            echo "✅ No existing stack found. Proceeding with creation."
                         }
                     }
                 }
