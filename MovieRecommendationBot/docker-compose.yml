@@ -2,43 +2,52 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: movie_recommendation_db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-users_db}
+      POSTGRES_USER: ${DB_USERNAME:-users_db}
+      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD:?error}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./src/main/resources/users_db.sql:/docker-entrypoint-initdb.d/users_db.sql
-    ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - postgres_data/var/lib/postgresql/data
+      - ./init-db/users_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-users_db} -d ${DB_NAME:-users_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      network: host
-    container_name: movie_recommendation_app
+    image: polyalugovenko/movie-recommendation-bot:latest
+    container_name: movie-bot-poly
+    restart: unless-stopped
     environment:
-      DB_URL: ${DB_URL}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      BOT_TOKEN: ${BOT_TOKEN}
-      BOT_USERNAME: ${BOT_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      API_KEY: ${API_KEY}
-      HTTP_PORT: ${HTTP_PORT}
-      HTTP_HOST: ${HTTP_HOST}
-
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-users_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-users_db}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?error}
+      # Telegram bot config
+      TELEGRAM_BOT_TOKEN: ${BOT_TOKEN:?error}
+      BOT_USERNAME: ${BOT_USERNAME:-MovieRecommendationBot}
+      # App config
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?error}
+      API_KEY: ${API_KEY:?error}
+      HTTP_PORT: ${HTTP_PORT:-8110}
+      HTTP_HOST: ${HTTP_HOST:-0.0.0.0}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "${HTTP_PORT}:${HTTP_PORT}"
+      - "${HTTP_PORT:-8110}:8110"
     networks:
       - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
