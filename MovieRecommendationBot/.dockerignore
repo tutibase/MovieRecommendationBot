@@ -1,0 +1,13 @@
+.env
+vault
+.git
+.gitignore
+.idea
+*.md
+Dockerfile
+docker-compose.yml
+Jenkinsfile
+Jenkinsfile.docker
+target/*
+!target/*.jar
+*.iml
