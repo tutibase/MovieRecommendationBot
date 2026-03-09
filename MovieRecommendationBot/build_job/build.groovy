@@ -18,7 +18,7 @@ pipeline {
                 // Используем права jenkins-poly (без sudo)
                 sh '''
                     createdb users_db 2>/dev/null || echo "DB exists"
-                    psql -d users_db -f "$(pwd)/src/main/resources/users_db.sql"
+                    psql -d users_db -f "$(pwd)/MovieRecommendationBot/src/main/resources/users_db.sql"
                 '''
             }
         }
