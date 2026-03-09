@@ -36,8 +36,10 @@ pipeline {
             }
             post {
                 success {
-                    // Архивация артефакта (требование ЛР)
                     archiveArtifacts artifacts: 'target/MovieRecommendationBot-*.jar', fingerprint: true
+                }
+                always {
+                    sh "docker rm -f \$(docker ps -a -q --filter name=tc-) 2>/dev/null || true"
                 }
             }
         }
@@ -45,8 +47,6 @@ pipeline {
 
     post {
         always {
-            // Чистка за Testcontainers
-            sh "docker rm -f \$(docker ps -a -q --filter name=tc-) 2>/dev/null || true"
             cleanWs()
         }
     }
