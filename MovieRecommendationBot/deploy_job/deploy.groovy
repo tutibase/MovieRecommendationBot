@@ -78,17 +78,17 @@ pipeline {
                 ]) {
                     sshagent([SSH_KEY]) {
                         sh """
-                    echo "🚀 Deploying to ${env.VM_IP}..."
+                    echo "Deploying to ${env.VM_IP}..."
                     
                     ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                         cd ${APP_DIR}
                         
                         # ✅ Простой способ создать .env (без heredoc)
-                        echo '🔐 Creating .env file...'
+                        echo 'Creating .env file...'
                         printf '%s\\n' \\
                             'DB_NAME=users_db' \\
                             'DB_USERNAME=users_db' \\
-                            'DB_PASSWORD=${DB_PASSWORD}' \\
+                            'POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}' \\
                             'BOT_TOKEN=${BOT_TOKEN}' \\
                             'BOT_USERNAME=Poly_MovieRecommendationBot' \\
                             'ADMIN_PASSWORD=${ADMIN_PASSWORD}' \\
@@ -97,19 +97,19 @@ pipeline {
                             'HTTP_HOST=0.0.0.0' \\
                             > .env
                         
-                        echo '📥 Pulling images...'
+                        echo 'Pulling images...'
                         docker compose pull
                         
-                        echo '🔄 Stopping old containers...'
+                        echo 'Stopping old containers...'
                         docker compose down || true
                         
-                        echo '🎬 Starting containers...'
+                        echo 'Starting containers...'
                         docker compose up -d --force-recreate
                         
-                        echo '⏳ Waiting for services...'
+                        echo 'Waiting for services...'
                         sleep 15
                         
-                        echo '📊 Checking status...'
+                        echo 'Checking status...'
                         docker compose ps
                     "
                 """
@@ -123,7 +123,7 @@ pipeline {
                 timeout(time: 3, unit: 'MINUTES') {
                     sshagent([SSH_KEY]) {
                         sh """
-                    echo "🔍 Waiting for app to be healthy..."
+                    echo "Waiting for app to be healthy..."
                     
                     ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                         timeout 180 bash -c '
