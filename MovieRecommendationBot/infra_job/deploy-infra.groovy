@@ -6,15 +6,14 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    parameters {
-        // Опциональная принудительная очистка перед деплоем
-        booleanParam(name: 'FORCE_CLEANUP', defaultValue: false,
-                description: 'Удалить существующий стек перед созданием нового')
-    }
-
     environment {
         STACK_NAME = "movie-bot-infra-${env.BUILD_NUMBER}"
         HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job/heat/stack.yaml'
+        OS_IMAGE = 'ubuntu-22.04'
+
+        OS_FLAVOR = 'm1.small'
+        SSH_KEY = 'lugov-key-pair'
+        SUBNET = 'd80da048-c188-45a5-80e4-55d914fe58ea'
     }
 
     stages {
@@ -88,26 +87,24 @@ pipeline {
         stage('Deploy Stack') {
             steps {
                 script {
-                    echo "🚀 Creating stack: ${STACK_NAME}"
+                    echo "Creating stack: ${STACK_NAME}"
                     withCredentials([file(credentialsId: 'openstack-rc-file',
                             variable: 'OPENSTACK_RC')]) {
-                        //Используем флаг --wait для ожидания завершения
                         sh '''
-                            set +x
-                            . $OPENSTACK_RC
-                            
-                            echo "Deploying infrastructure..."
-                            openstack stack create \
-                                -t ${HEAT_TEMPLATE} \
-                                --parameter key_name=lugov-key-pair \
-                                --parameter image_id=ubuntu-22.04 \
-                                --parameter flavor_id=m1.small \
-                                --parameter existing_subnet_id=d80da048-c188-45a5-80e4-55d914fe58ea \
-                                --wait \
-                                ${STACK_NAME}
-                            
-                            echo "✅ Stack creation completed!"
-                        '''
+                    set +x
+                    . $OPENSTACK_RC
+                    
+                    openstack stack create \
+                        -t $HEAT_TEMPLATE \
+                        --parameter key_name=$SSH_KEY \
+                        --parameter image_id=$OS_IMAGE \
+                        --parameter flavor_id=$OS_FLAVOR \
+                        --parameter existing_subnet_id=$SUBNET \
+                        --wait \
+                        $STACK_NAME
+                    
+                    echo "✅ Stack creation completed!"
+                '''
                     }
                 }
             }
