@@ -72,7 +72,7 @@ pipeline {
             steps {
                 withCredentials([
                         string(credentialsId: 'telegram-bot-token', variable: 'BOT_TOKEN'),
-                        string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+                        string(credentialsId: 'db-password', variable: 'POSTGRES_DB_PASSWORD'),
                         string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
                         string(credentialsId: 'api-key', variable: 'API_KEY')
                 ]) {
