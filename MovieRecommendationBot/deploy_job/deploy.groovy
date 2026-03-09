@@ -76,47 +76,49 @@ pipeline {
                         string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
                         string(credentialsId: 'api-key', variable: 'API_KEY')
                 ]) {
-                    sh '''
-                        echo " Deploying to ${VM_IP}..."
+                    sshagent([SSH_KEY]) {  // ← ключ подставится автоматически
+                        sh """
+                    echo " Deploying to ${env.VM_IP}..."
+                    
+                    ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
+                        cd ${APP_DIR}
                         
-                        ssh -o StrictHostKeyChecking=no -i ~jenkins-poly/.ssh/${SSH_KEY} ubuntu@${VM_IP} "
-                            cd ${APP_DIR}
-                            
-                            # Генерируем .env файл с секретами
-                            echo ' Creating .env file...'
-                            cat > .env << EOF
-                            DB_NAME=users_db
-                            DB_USERNAME=users_db
-                            DB_PASSWORD=${DB_PASSWORD}
-                            BOT_TOKEN=${BOT_TOKEN}
-                            BOT_USERNAME=MovieRecommendationBot
-                            ADMIN_PASSWORD=${ADMIN_PASSWORD}
-                            API_KEY=${API_KEY}
-                            HTTP_PORT=8110
-                            HTTP_HOST=0.0.0.0
-                            EOF
-                            
-                            # Pull свежих образов
-                            echo 'Pulling images...'
-                            docker compose pull
-                            
-                            # Останавливаем старое (если есть)
-                            echo 'Stopping old containers...'
-                            docker compose down || true
-                            
-                            # Запускаем новое
-                            echo 'Starting containers...'
-                            docker compose up -d --force-recreate
-                            
-                            # Ждём запуска
-                            echo ' Waiting for services...'
-                            sleep 15
-                            
-                            # Проверка статуса
-                            echo 'Checking status...'
-                            docker compose ps
-                        "
-                    '''
+                        # Генерируем .env файл с секретами
+                        echo 'Creating .env file...'
+                        cat > .env << EOF
+                        DB_NAME=users_db
+                        DB_USERNAME=users_db
+                        DB_PASSWORD=${DB_PASSWORD}
+                        BOT_TOKEN=${BOT_TOKEN}
+                        BOT_USERNAME=MovieRecommendationBot
+                        ADMIN_PASSWORD=${ADMIN_PASSWORD}
+                        API_KEY=${API_KEY}
+                        HTTP_PORT=8110
+                        HTTP_HOST=0.0.0.0
+                        EOF
+                                                
+                        # Pull свежих образов
+                        echo ' Pulling images...'
+                        docker compose pull
+                        
+                        # Останавливаем старое (если есть)
+                        echo ' Stopping old containers...'
+                        docker compose down || true
+                        
+                        # Запускаем новое
+                        echo ' Starting containers...'
+                        docker compose up -d --force-recreate
+                        
+                        # Ждём запуска
+                        echo ' Waiting for services...'
+                        sleep 15
+                        
+                        # Проверка статуса
+                        echo ' Checking status...'
+                        docker compose ps
+                    "
+                """
+                    }
                 }
             }
         }
