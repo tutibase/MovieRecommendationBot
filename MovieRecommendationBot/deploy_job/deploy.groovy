@@ -89,7 +89,7 @@ pipeline {
                             'DB_NAME=users_db' \\
                             'DB_USERNAME=users_db' \\
                             'POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}' \\
-                            'DB_URL=jdbc:postgresql://db:5432/users_db' \\\\
+                            'DB_URL=jdbc:postgresql://db:5432/users_db' \\
                             'BOT_TOKEN=${BOT_TOKEN}' \\
                             'BOT_USERNAME=Poly_MovieRecommendationBot' \\
                             'ADMIN_PASSWORD=${ADMIN_PASSWORD}' \\
