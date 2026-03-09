@@ -121,30 +121,44 @@ pipeline {
 
         stage('Health Check') {
             steps {
-                timeout(time: 3, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     sshagent([SSH_KEY]) {
-                        // ✅ Используем '''...''' чтобы избежать проблем с экранированием
                         sh '''
                     echo "Waiting for app to be healthy..."
                     
                     ssh -o StrictHostKeyChecking=no ubuntu@${VM_IP} '
-                        set -e
+                        set +e 
+                        
                         echo "  Checking containers..."
                         
-                        # Ждём, пока контейнер app не станет running
-                        for i in {1..36}; do
-                            if docker compose ps -q app 2>/dev/null | xargs -r docker inspect --format="{{.State.Status}}" 2>/dev/null | grep -q running; then
+                        CONTAINER_NAME="movie-bot-poly"
+                        
+                        for i in {1..60}; do 
+                            STATUS=$(docker compose ps -q app 2>/dev/null | head -1 | xargs -r docker inspect --format="{{.State.Status}}" 2>/dev/null | tr -d "[:space:]")
+                            
+                            if [ "$STATUS" = "running" ]; then
                                 echo "  ✅ App container is running"
                                 break
                             fi
-                            echo "    Waiting for app container... ($i/36)"
+                            
+                            echo "    Waiting for app container... ($i/60) - status: ${STATUS:-unknown}"
                             sleep 5
                         done
                         
-                        echo "  Checking logs..."
-                        if docker compose logs app --tail=50 2>&1 | grep -qiE "error|exception|failed|connection"; then
-                            echo "  ⚠️ Warning: potential errors in logs"
-                            docker compose logs app --tail=20 || true
+                        if [ "$STATUS" != "running" ]; then
+                            echo "  ❌ App container failed to start (status: $STATUS)"
+                            echo "  === Container status ==="
+                            docker compose ps
+                            echo "  === Last 30 app logs ==="
+                            docker compose logs app --tail=30 || true
+                            exit 1
+                        fi
+                        
+                        echo "  Checking logs for critical errors..."
+                        if docker compose logs app --tail=100 2>&1 | grep -qiE "fatal|exception|authentication failed"; then
+                            echo "  ⚠️ Warning: critical errors in logs"
+                            docker compose logs app --tail=30 || true
+                            exit 1
                         else
                             echo "  ✅ No critical errors detected"
                         fi
