@@ -22,7 +22,7 @@ pipeline {
         stage('Test OpenStack Connection') {
             steps {
                 script {
-                    echo "🔑 Testing OpenStack authentication..."
+                    echo "Testing OpenStack authentication..."
                     withCredentials([file(credentialsId: 'openstack-rc-file',
                             variable: 'OPENSTACK_RC')]) {
                         sh '''
@@ -35,7 +35,7 @@ pipeline {
                             if [ $? -eq 0 ]; then
                                 echo "✅ Authentication successful!"
                             else
-                                echo "❌ Authentication failed!"
+                                echo " Authentication failed!"
                                 exit 1
                             fi
                         '''
@@ -59,14 +59,14 @@ pipeline {
                         ).trim()
 
                         if (stackStatus != 'NOT_FOUND') {
-                            echo "⚠️ Stack exists with status: ${stackStatus}. Cleaning up..."
+                            echo " Stack exists with status: ${stackStatus}. Cleaning up..."
                             sh '''
                         set +x
                         . $OPENSTACK_RC
                         openstack stack delete --yes ${STACK_NAME}
                     '''
 
-                            echo "⏳ Waiting for deletion..."
+                            echo " Waiting for deletion..."
                             timeout(time: 5, unit: 'MINUTES') {
                                 sh '''
                             while openstack stack show ${STACK_NAME} -f value -c stack_status 2>/dev/null | grep -q .; do
@@ -74,9 +74,9 @@ pipeline {
                             done
                         '''
                             }
-                            echo "✅ Stack deleted"
+                            echo "Stack deleted"
                         } else {
-                            echo "✅ No existing stack found. Proceeding with creation."
+                            echo "No existing stack found. Proceeding with creation."
                         }
                     }
                 }
@@ -103,7 +103,7 @@ pipeline {
                         --wait \
                         $STACK_NAME
                     
-                    echo "✅ Stack creation completed!"
+                    echo "Stack creation completed!"
                 '''
                     }
                 }
@@ -119,7 +119,7 @@ pipeline {
                                 script: ". \$OPENSTACK_RC && openstack stack output show -c output_value -f value ${STACK_NAME} server_private_ip",
                                 returnStdout: true
                         ).trim()
-                        echo "🌐 Server IP: ${output}"
+                        echo "Server IP: ${output}"
                         env.SERVER_IP = output
 
                         // Сохраняем все выводы в файл для архивации
@@ -135,10 +135,9 @@ pipeline {
 
     post {
         always {
-            // 📦 Архивируем артефакты (даже если сборка упала)
             archiveArtifacts artifacts: 'stack_outputs.json', allowEmptyArchive: true
 
-            // 🧹 Очищаем рабочую директорию
+            // Очищаем рабочую директорию
             cleanWs()
         }
 
@@ -153,11 +152,11 @@ pipeline {
                     
                     # Проверяем, существует ли стек, перед удалением
                     if openstack stack show ${STACK_NAME} &>/dev/null; then
-                        echo "🗑️ Deleting failed stack ${STACK_NAME}..."
+                        echo "🗑Deleting failed stack ${STACK_NAME}..."
                         openstack stack delete --yes ${STACK_NAME} || true
-                        echo "✅ Cleanup completed"
+                        echo "Cleanup completed"
                     else
-                        echo "ℹ️ Stack ${STACK_NAME} does not exist, nothing to clean"
+                        echo "Stack ${STACK_NAME} does not exist, nothing to clean"
                     fi
                 '''
             }
