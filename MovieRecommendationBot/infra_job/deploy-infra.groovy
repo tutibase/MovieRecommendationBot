@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        STACK_NAME = "movie-bot-infra-${env.BUILD_NUMBER}"
+        STACK_NAME = STACK_NAME = "movie-bot-poly"
         HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job/heat/stack.yaml'
         OS_IMAGE = 'ununtu-22.04'
 
