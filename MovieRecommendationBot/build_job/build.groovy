@@ -33,9 +33,10 @@ pipeline {
             steps {
                 sh '''
                     cd "${WORKSPACE}/MovieRecommendationBot"
+                    echo "🔹 DB_PASSWORD is set: [${DB_PASSWORD:+***SET***}]"
                     mvn clean package \
                       -DskipTests \
-                      -Ddb.password=$$DB_PASSWORD \
+                      -Ddb.password=$DB_PASSWORD \
                       -Dstyle.color=always
                 '''
             }
