@@ -158,9 +158,9 @@
 
         <configuration>
           <jdbc>
-            <url>jdbc:tc:postgresql:15:///users_db</url>
-            <user>postgres</user>
-            <password>${db.password:password}</password>
+            <url>jdbc:postgresql://localhost:5432/users_db</url>
+            <user>jenkins-poly</user>
+            <password>${db.password}</password>
           </jdbc>
           <generator>
             <target>
