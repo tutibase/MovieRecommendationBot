@@ -1,0 +1,10 @@
+---
+all:
+  children:
+    movie_bot_vms:
+      hosts:
+        poly-bot-vm:
+          ansible_host: "{{ server_ip | default('VM_IP_PLACEHOLDER') }}"
+      vars:
+          ansible_user: polik
+          ansible_ssh_private_key_file: "~/.ssh/id_rsa"
