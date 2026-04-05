@@ -1,14 +1,8 @@
 pipeline {
-    agent {
-        label 'poly-agent'
-    }
-
-    options {
-        ansiColor('xterm')
-    }
+    agent any
 
     environment {
-        DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot"
+        DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot-new-infra"
         IMAGE_TAG = "build-${env.BUILD_NUMBER}"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
     }
@@ -16,8 +10,8 @@ pipeline {
     stages {
         stage('Get Artifact') {
             steps {
-                echo "Copying artifact from Lab2-Build..."
-                copyArtifacts projectName: 'Lab2-Build',
+                echo "Copying artifact from Build..."
+                copyArtifacts projectName: 'Build',
                         selector: lastSuccessful(),
                         target: 'target/',
                         filter: '**/*.jar',
