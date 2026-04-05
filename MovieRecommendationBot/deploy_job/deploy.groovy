@@ -94,7 +94,6 @@ pipeline {
 
         stage('Deploy Application') {
             steps {
-                // 🔐 ВСЕ переменные окружения берём из одного файла app-env-content
                 withCredentials([
                         file(credentialsId: 'app-env-content', variable: 'APP_ENV_FILE'),
                         sshUserPrivateKey(
@@ -105,53 +104,68 @@ pipeline {
                         )
                 ]) {
                     sh """
-                        echo "Deploying to ${env.VM_IP}..."
+                echo "Deploying to ${env.VM_IP}..."
+                
+                # 1. Гарантированно создаём директорию на ВМ
+                ssh -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=10 \\
+                    \${SSH_USER:-ubuntu}@${env.VM_IP} "
+                        mkdir -p ${APP_DIR}
+                    "
+                
+                # 2. Копируем готовый .env файл напрямую через scp
+                echo "Copying .env file..."
+                scp -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=30 \\
+                    \"${APP_ENV_FILE}\" \\
+                    \${SSH_USER:-ubuntu}@${env.VM_IP}:${APP_DIR}/.env
+                
+                # 3. Копируем docker-compose.yml (если ещё не скопирован)
+                if [ -f "${COMPOSE_FILE}" ]; then
+                    scp -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=30 \\
+                        ${COMPOSE_FILE} \\
+                        \${SSH_USER:-ubuntu}@${env.VM_IP}:${APP_DIR}/
+                fi
+                
+                # 4. Запускаем приложение на ВМ
+                echo "Starting application..."
+                ssh -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=10 \\
+                    \${SSH_USER:-ubuntu}@${env.VM_IP} "
+                        cd ${APP_DIR}
                         
-                        ssh -i \${SSH_KEY_FILE} \\
-                            -o StrictHostKeyChecking=no \\
-                            -o ConnectTimeout=10 \\
-                            \${SSH_USER:-ubuntu}@${env.VM_IP} "
-                                cd ${APP_DIR}
-                                
-                                # 🔐 Копируем готовый .env файл из секретов
-                                echo 'Creating .env from secret file...'
-                                cat > .env << 'ENV_EOF'
-ENV_EOF
-                                # Добавляем содержимое секретного файла
-                                # Используем base64 для безопасной передачи спецсимволов
-                                base64 -w0 \"${APP_ENV_FILE}\" | ssh -i \${SSH_KEY_FILE} \\
-                                    \${SSH_USER:-ubuntu}@${env.VM_IP} \\
-                                    \"base64 -d >> ${APP_DIR}/.env\"
-                                
-                                # Проверка, что .env создался и содержит ключевые переменные
-                                echo 'Verifying .env...'
-                                if grep -q 'DB_URL' ${APP_DIR}/.env 2>/dev/null; then
-                                    echo '✅ .env contains DB_URL'
-                                else
-                                    echo '⚠️ .env may be incomplete'
-                                fi
-                                
-                                # Проверка, что пустые значения заполнены (опционально)
-                                if grep -q '^DB_PASSWORD= ${APP_DIR}/.env 2>/dev/null; then
-                                    echo '⚠️ DB_PASSWORD is empty in .env'
-                                fi
-                                
-                                echo 'Pulling images...'
-                                docker compose pull
-                                
-                                echo 'Stopping old containers...'
-                                docker compose down || true
-                                
-                                echo 'Starting containers...'
-                                docker compose up -d --force-recreate
-                                
-                                echo 'Waiting for services...'
-                                sleep 15
-                                
-                                echo 'Checking status...'
-                                docker compose ps
-                            "
-                    """
+                        # Проверка, что .env скопировался
+                        if [ -f .env ]; then
+                            echo '✅ .env file exists'
+                            # Покажем только названия переменных (без значений!) для отладки
+                            echo '🔍 Variables in .env:'
+                            cut -d'=' -f1 .env | head -10
+                        else
+                            echo '❌ ERROR: .env file not found!'
+                            exit 1
+                        fi
+                        
+                        echo 'Pulling images...'
+                        docker compose pull
+                        
+                        echo 'Stopping old containers...'
+                        docker compose down || true
+                        
+                        echo 'Starting containers...'
+                        docker compose up -d --force-recreate
+                        
+                        echo 'Waiting for services...'
+                        sleep 15
+                        
+                        echo 'Checking status...'
+                        docker compose ps
+                    "
+            """
                 }
             }
         }
