@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        TF_DIR = 'terraform'
-        ANSIBLE_DIR = 'ansible'
+        TF_DIR = 'MovieRecommendationBot/terraform'
+        ANSIBLE_DIR = 'MovieRecommendationBot/ansible'
         APP_DIR = '/opt/movie-bot'
 
         // Terraform variables (значения по умолчанию, будут переопределены через withCredentials)
