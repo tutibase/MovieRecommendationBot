@@ -217,7 +217,12 @@ EOF
         stage('Archive Artifacts') {
             steps {
                 archiveArtifacts(
-                        artifacts: 'terraform/*.tf, ansible/**/*.yml, ansible/hosts.ini, outputs/**/*',
+                        artifacts: '''
+                MovieRecommendationBot/terraform/*.tf,
+                MovieRecommendationBot/ansible/**/*.yml,
+                MovieRecommendationBot/ansible/hosts.ini,
+                MovieRecommendationBot/outputs/**/*
+            ''',
                         allowEmptyArchive: true
                 )
                 echo "✅ Artifacts archived"
