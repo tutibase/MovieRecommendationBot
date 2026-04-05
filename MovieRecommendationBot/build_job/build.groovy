@@ -47,7 +47,7 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            deleteDir()
         }
         failure {
             echo "\033[31m Pipeline failed! Check console output.\033[0m"
