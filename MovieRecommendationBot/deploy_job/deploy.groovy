@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // App config
-        DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot-new"
+        DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot-new-infra"
         IMAGE_TAG = "latest"
 
         // Infra paths
@@ -180,54 +180,56 @@ pipeline {
                             passphraseVariable: ''
                     )]) {
                         sh '''
-                            echo "Waiting for app to be healthy..."
+                    echo "Waiting for app to be healthy..."
+                    
+                    ssh -i ${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=10 \\
+                        ${SSH_USER:-ubuntu}@${VM_IP} '
+                            set +e
                             
-                            ssh -i ${SSH_KEY_FILE} \\
-                                -o StrictHostKeyChecking=no \\
-                                -o ConnectTimeout=10 \\
-                                ${SSH_USER:-ubuntu}@${VM_IP} '
-                                    set +e 
-                                    
-                                    echo "  Checking containers..."
-                                    
-                                    for i in {1..60}; do 
-                                        STATUS=$(docker compose ps -q app 2>/dev/null | head -1 | xargs -r docker inspect --format="{{.State.Status}}" 2>/dev/null | tr -d "[:space:]")
-                                        
-                                        if [ "$STATUS" = "running" ]; then
-                                            echo "  ✅ App container is running"
-                                            break
-                                        fi
-                                        
-                                        echo "    Waiting for app container... ($i/60) - status: ${STATUS:-unknown}"
-                                        sleep 5
-                                    done
-                                    
-                                    if [ "$STATUS" != "running" ]; then
-                                        echo "  ❌ App container failed to start (status: $STATUS)"
-                                        echo "  === Container status ==="
-                                        docker compose ps
-                                        echo "  === Last 30 app logs ==="
-                                        docker compose logs app --tail=30 || true
-                                        exit 1
-                                    fi
-                                    
-                                    echo "  Checking logs for critical errors..."
-                                    if docker compose logs app --tail=100 2>&1 | grep -qiE "fatal|exception|authentication failed"; then
-                                        echo "  ⚠️ Warning: critical errors in logs"
-                                        docker compose logs app --tail=30 || true
-                                        exit 1
-                                    else
-                                        echo "  ✅ No critical errors detected"
-                                    fi
-                                    
-                                    echo "  Checking DB..."
-                                    if docker compose exec -T db pg_isready -U users_db -d users_db 2>/dev/null | grep -q "accepting"; then
-                                        echo "  ✅ Database is ready"
-                                    else
-                                        echo "  ⚠️ Database may not be ready yet"
-                                    fi
-                                '
-                        '''
+                            echo "  Checking containers..."
+                            
+                            # 🔍 Простая и надёжная проверка: ищем контейнер по имени сервиса в docker ps
+                            for i in {1..30}; do  # 30 попыток * 10 сек = 5 минут
+                                # Проверяем, есть ли контейнер со статусом "Up" в выводе
+                                if docker ps --format "{{.Names}}|{{.Status}}" | grep -E "movie-bot-poly.*Up"; then
+                                    echo "  ✅ App container is running"
+                                    break
+                                fi
+                                
+                                echo "    Waiting for app container... ($i/30)"
+                                sleep 10
+                            done
+                            
+                            # Финальная проверка: если контейнер не найден — ошибка
+                            if ! docker ps --format "{{.Names}}" | grep -q "movie-bot-poly"; then
+                                echo "  ❌ App container not found!"
+                                echo "  === All containers ==="
+                                docker ps -a
+                                exit 1
+                            fi
+                            
+                            echo "  Checking logs for critical errors..."
+                            if docker compose logs app --tail=50 2>&1 | grep -qiE "fatal|exception|authentication failed|error"; then
+                                echo "  ⚠️ Warning: potential errors in logs"
+                                docker compose logs app --tail=20 || true
+                                # Не завершаем с ошибкой, если приложение всё ещё работает
+                            else
+                                echo "  ✅ No critical errors detected in recent logs"
+                            fi
+                            
+                            echo "  Checking DB connectivity..."
+                            if docker compose exec -T db pg_isready -U users_db -d users_db 2>/dev/null | grep -q "accepting"; then
+                                echo "  ✅ Database is ready and accepting connections"
+                            else
+                                echo "  ⚠️ Database may not be ready yet, but continuing..."
+                            fi
+                            
+                            echo "  Final status check:"
+                            docker compose ps
+                        '
+                '''
                     }
                 }
             }

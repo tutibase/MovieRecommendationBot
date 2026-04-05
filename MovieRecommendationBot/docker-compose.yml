@@ -21,7 +21,7 @@ services:
       retries: 5
 
   app:
-    image: polyalugovenko/movie-recommendation-bot:latest
+    image: polyalugovenko/movie-recommendation-bot-new-infra:latest
     container_name: movie-bot-poly
     restart: unless-stopped
     environment:
