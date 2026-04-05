@@ -38,7 +38,7 @@ variable "yc_token" {
 variable "zone" {
   type        = string
   description = "Default availability zone"
-  default     = "ru-central1-a"
+  default     = "ru-central1-d"
 }
 
 variable "ssh_public_key" {
@@ -49,7 +49,7 @@ variable "ssh_public_key" {
 variable "subnet_id" {
   type        = string
   description = "Existing subnet ID"
-  default     = "enpq1korg6qpq5kr687c"
+  default     = "fl80id702e4irnblcd63"
 }
 
 variable "security_group_id" {
