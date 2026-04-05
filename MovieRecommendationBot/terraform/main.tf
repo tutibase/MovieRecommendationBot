@@ -49,13 +49,13 @@ variable "ssh_public_key" {
 variable "subnet_id" {
   type        = string
   description = "Existing subnet ID"
-  default     = "e2l8upt32adb7kjindkt"
+  default     = "enpq1korg6qpq5kr687c"
 }
 
 variable "security_group_id" {
   type        = string
   description = "Existing security group ID"
-  default     = "enp92iphnc0bquh1mg9f"
+  default     = "enpv49erji0f40prfu72"
 }
 
 variable "instance_name" {
