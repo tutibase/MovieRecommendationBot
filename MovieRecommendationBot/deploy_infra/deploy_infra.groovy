@@ -12,7 +12,7 @@ pipeline {
         TF_VAR_folder_id    = ''
         TF_VAR_yc_token     = ''
         TF_VAR_ssh_public_key = ''
-        TF_VAR_zone         = 'ru-central1-a'
+        TF_VAR_zone         = 'ru-central1-d'
 
         // Ansible settings
         ANSIBLE_HOST_KEY_CHECKING = 'False'
@@ -114,17 +114,31 @@ pipeline {
                 script {
                     echo "Waiting for SSH on ${env.SERVER_IP}..."
                     timeout(time: 10, unit: 'MINUTES') {
-                        for (int i = 0; i < 40; i++) {  // 40 * 15 сек = 10 минут
-                            def result = sh(
-                                    script: "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ubuntu@${env.SERVER_IP} 'echo SSH ready' 2>&1",
-                                    returnStatus: true
-                            )
-                            if (result == 0) {
-                                echo "✅ SSH ready"
-                                return
+                        // Используем withCredentials для безопасного доступа к ключу
+                        withCredentials([sshUserPrivateKey(
+                                credentialsId: 'ssh-private-key',
+                                keyFileVariable: 'SSH_KEY_FILE',
+                                usernameVariable: 'SSH_USER',
+                                passphraseVariable: ''
+                        )]) {
+                            for (int i = 0; i < 40; i++) {  // 40 * 15 сек = 10 минут
+                                def result = sh(
+                                        script: """
+                                ssh -i \${SSH_KEY_FILE} \\
+                                    -o StrictHostKeyChecking=no \\
+                                    -o ConnectTimeout=10 \\
+                                    -o BatchMode=yes \\
+                                    \${SSH_USER:-ubuntu}@${env.SERVER_IP} 'echo SSH ready' 2>&1
+                            """,
+                                        returnStatus: true
+                                )
+                                if (result == 0) {
+                                    echo "✅ SSH ready"
+                                    return
+                                }
+                                echo "⏳ Attempt ${i+1}/40..."
+                                sleep(time: 15, unit: 'SECONDS')
                             }
-                            echo "⏳ Attempt ${i+1}/40..."
-                            sleep(time: 15, unit: 'SECONDS')
                         }
                         error("SSH timeout after 10 minutes")
                     }
@@ -132,69 +146,41 @@ pipeline {
             }
         }
 
-        stage('Prepare SSH Key for Ansible') {
-            steps {
-                script {
-                    // Создаём временный файл для приватного ключа
-                    env.SSH_KEY_PATH = "${env.WORKSPACE}/.ssh/deploy_key"
-                    sh '''
-                        mkdir -p "${WORKSPACE}/.ssh"
-                        echo "${SSH_KEY}" > "${SSH_KEY_PATH}"
-                        chmod 600 "${SSH_KEY_PATH}"
-                    '''
-                    echo "✅ SSH key prepared at ${env.SSH_KEY_PATH}"
-                }
-            }
-        }
-
         stage('Ansible Deploy') {
             steps {
-                script {
-                    // Генерируем динамический inventory с правильным путём к ключу
-                    sh """
-                        cat > ${ANSIBLE_DIR}/inventory_dynamic.yml << EOF
-                        ---
-                        all:
-                          children:
-                            movie_bot_vms:
-                              hosts:
-                                poly-bot-vm:
-                                  ansible_host: ${env.SERVER_IP}
-                                  ansible_user: ubuntu
-                                  ansible_ssh_private_key_file: ${env.SSH_KEY_PATH}
-                                  ansible_python_interpreter: /usr/bin/python3
-                        EOF
-                    """
+                sh """
+                cat > ${ANSIBLE_DIR}/inventory_dynamic.yml << EOF
+                ---
+                all:
+                  children:
+                    movie_bot_vms:
+                      hosts:
+                        poly-bot-vm:
+                          ansible_host: ${env.SERVER_IP}
+                          ansible_user: ubuntu
+                          ansible_python_interpreter: /usr/bin/python3
+                EOF
+                """
 
-                    // Запуск playbook с динамическим inventory
+                withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ssh-private-key',
+                        keyFileVariable: 'SSH_KEY_FILE',
+                        usernameVariable: 'SSH_USER',
+                        passphraseVariable: ''
+                )]) {
                     dir("${ANSIBLE_DIR}") {
-                        sh "ansible-playbook -i inventory_dynamic.yml playbook.yml"
+                        sh """
+                    ansible-playbook -i inventory_dynamic.yml playbook.yml \\
+                        --private-key \${SSH_KEY_FILE} \\
+                        -u \${SSH_USER:-ubuntu} \\
+                        -vv
+                        """
                     }
-
-                    // Очистка временного inventory
-                    sh "rm -f ${ANSIBLE_DIR}/inventory_dynamic.yml"
                 }
+
+                sh "rm -f ${ANSIBLE_DIR}/inventory_dynamic.yml"
+
                 echo "✅ Application deployed"
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                script {
-                    echo "🔍 Checking application health..."
-                    timeout(time: 5, unit: 'MINUTES') {
-                        def response = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' http://${env.SERVER_IP}:8110/health || echo '000'",
-                                returnStdout: true
-                        ).trim()
-
-                        if (response ==~ /200|404/) {
-                            echo "✅ Application responding (HTTP ${response})"
-                        } else {
-                            echo "⚠️ Application check returned HTTP ${response}"
-                        }
-                    }
-                }
             }
         }
 
@@ -209,11 +195,6 @@ pipeline {
     post {
         always {
             script {
-                // Очистка временного SSH-ключа
-                if (env.SSH_KEY_PATH) {
-                    sh "rm -f ${env.SSH_KEY_PATH} 2>/dev/null || true"
-                }
-                // Очистка workspace
                 cleanWs()
             }
         }
