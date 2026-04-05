@@ -4,10 +4,10 @@ pipeline {
     environment {
         DB_PASSWORD = credentials('DB_PASSWORD')
         DB_NAME = 'users_db'
-        DB_USER = 'postgres'  // Должно совпадать с POSTGRES_USER в docker run
+        DB_USER = 'postgres'
         DB_CONTAINER_NAME = "pg_${JOB_NAME}_${BUILD_ID}".replaceAll('[^a-zA-Z0-9_]', '_')
-        // Используем имя контейнера как хост для подключения из Maven/jOOQ
-        DB_HOST = "${DB_CONTAINER_NAME}"
+
+        DB_HOST = 'host.docker.internal'
     }
 
     stages {
@@ -87,17 +87,17 @@ pipeline {
                                 "DB_PASSWORD=${env.DB_PASSWORD}",
                                 "DB_USER=${env.DB_USER}",
                                 "DB_NAME=${env.DB_NAME}",
+                                "DB_HOST=${env.DB_HOST}",  // host.docker.internal
                                 "WORKSPACE=${env.WORKSPACE}"
                         ]) {
                             sh '''
                         cd "${WORKSPACE}/MovieRecommendationBot"
                         
-                        # Формируем JDBC URL: имя контейнера работает как hostname в Docker network
-                        DB_URL="jdbc:postgresql://${DB_CONTAINER_NAME}:5432/${DB_NAME}"
+                        # Формируем JDBC URL с host.docker.internal
+                        DB_URL="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}"
                         
                         echo "🔹 Building with DB_URL=${DB_URL}"
                         
-                        # Передаём параметры в Maven
                         mvn clean package \
                           -DskipTests \
                           -Ddb.url="${DB_URL}" \
