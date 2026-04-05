@@ -109,6 +109,25 @@ pipeline {
             }
         }
 
+        stage('Save Infrastructure Outputs') {
+            steps {
+                script {
+                    // Создаём директорию для выводов
+                    sh "mkdir -p outputs"
+
+                    // Сохраняем IP в простой текстовый файл
+                    sh "echo -n '${env.SERVER_IP}' > outputs/vm_ip.txt"
+
+                    // (Опционально) Сохраняем все outputs Terraform в JSON
+                    dir("${TF_DIR}") {
+                        sh "terraform output -json > ../outputs/terraform_outputs.json"
+                    }
+
+                    echo "✅ Outputs saved to outputs/"
+                }
+            }
+        }
+
         stage('Wait for SSH') {
             steps {
                 script {
@@ -197,7 +216,10 @@ EOF
 
         stage('Archive Artifacts') {
             steps {
-                archiveArtifacts artifacts: 'terraform/*.tf, ansible/**/*.yml, ansible/hosts.ini', allowEmptyArchive: true
+                archiveArtifacts(
+                        artifacts: 'terraform/*.tf, ansible/**/*.yml, ansible/hosts.ini, outputs/**/*',
+                        allowEmptyArchive: true
+                )
                 echo "✅ Artifacts archived"
             }
         }
