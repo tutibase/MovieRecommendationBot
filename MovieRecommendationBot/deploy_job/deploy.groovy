@@ -95,6 +95,7 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 script {
+                    def deployUser = env.SSH_USER ?: 'ubuntu'
                     def deployHost = env.VM_IP
 
                     withCredentials([
