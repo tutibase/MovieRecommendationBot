@@ -12,7 +12,6 @@ pipeline {
         stage('Database Setup') {
             steps {
                 script {
-                    // withEnv передаёт переменные Jenkins в оболочку sh
                     withEnv([
                             "DB_CONTAINER_PREFIX=${env.DB_CONTAINER_PREFIX}",
                             "DB_PASSWORD=${env.DB_PASSWORD}",
@@ -21,38 +20,41 @@ pipeline {
                             "WORKSPACE=${env.WORKSPACE}"
                     ]) {
                         sh '''
-                            # Настройка Docker
-                            export DOCKER_HOST=unix:///var/run/docker.sock
-                            export DOCKER_TLS_VERIFY=""
-                            export DOCKER_CERT_PATH=""
-                            
-                            # Запуск PostgreSQL (переменные подставляются shell'ом)
-                            docker run -d \
-                                --name "${DB_CONTAINER_PREFIX}" \
-                                -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
-                                -e POSTGRES_DB="${DB_NAME}" \
-                                -e POSTGRES_USER="${DB_USER}" \
-                                -p 5432:5432 \
-                                postgres:15
+                    # Настройка Docker
+                    export DOCKER_HOST=unix:///var/run/docker.sock
+                    export DOCKER_TLS_VERIFY=""
+                    export DOCKER_CERT_PATH=""
+                    
+                    # Запуск PostgreSQL
+                    docker run -d \
+                        --name "${DB_CONTAINER_PREFIX}" \
+                        -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
+                        -e POSTGRES_DB="${DB_NAME}" \
+                        -e POSTGRES_USER="${DB_USER}" \
+                        -p 5432:5432 \
+                        postgres:15
 
-                            # Ожидание готовности БД
-                            echo "Waiting for PostgreSQL..."
-                            until docker exec "${DB_CONTAINER_PREFIX}" pg_isready -U "${DB_USER}"; do
-                                sleep 2
-                            done
+                    # Ожидание готовности БД
+                    echo "Waiting for PostgreSQL..."
+                    until docker exec "${DB_CONTAINER_PREFIX}" pg_isready -U "${DB_USER}"; do
+                        sleep 2
+                    done
 
-                            # Применение SQL-скрипта
-                            cd "${WORKSPACE}/MovieRecommendationBot"
-                            SQL_FILE="src/main/resources/users_db.sql"
-                            
-                            if [ -f "${SQL_FILE}" ]; then
-                                docker exec -e PGPASSWORD="${DB_PASSWORD}" "${DB_CONTAINER_PREFIX}" \
-                                    psql -U "${DB_USER}" -d "${DB_NAME}" -f "/workspace/MovieRecommendationBot/${SQL_FILE}"
-                            else
-                                echo "File not found: ${SQL_FILE}"
-                                exit 1
-                            fi
-                        '''
+                    # Применение SQL-скрипта через stdin (КРИТИЧЕСКИ ВАЖНО)
+                    cd "${WORKSPACE}/MovieRecommendationBot"
+                    SQL_FILE="src/main/resources/users_db.sql"
+                    
+                    if [ -f "${SQL_FILE}" ]; then
+                        # -i флаг для docker exec открывает stdin для передачи данных
+                        cat "${SQL_FILE}" | docker exec -i \
+                            -e PGPASSWORD="${DB_PASSWORD}" \
+                            "${DB_CONTAINER_PREFIX}" \
+                            psql -U "${DB_USER}" -d "${DB_NAME}"
+                    else
+                        echo "File not found: ${SQL_FILE}"
+                        exit 1
+                    fi
+                '''
                     }
                 }
             }
