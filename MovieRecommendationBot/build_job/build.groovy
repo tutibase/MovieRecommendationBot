@@ -77,15 +77,21 @@ pipeline {
 
     post {
         always {
-            script {
-                // Безопасная очистка: используем ту же логику формирования имени
-                def containerName = "${env.DB_CONTAINER_PREFIX}"
-                sh """
-                    echo "Cleaning up container: ${containerName}"
-                    docker rm -f ${containerName} 2>/dev/null || echo "Container ${containerName} not found or already removed"
-                """
-                // Очистка рабочей директории
-                deleteDir()
+            node {
+                ws {
+                    script {
+                        def containerName = "pg_${env.JOB_NAME}_${env.BUILD_ID}".replaceAll('[^a-zA-Z0-9_]', '_')
+
+                        sh '''
+                        echo "Cleaning up container: '"${containerName}"'"
+                        export DOCKER_HOST=unix:///var/run/docker.sock
+                        export DOCKER_TLS_VERIFY=""
+                        export DOCKER_CERT_PATH=""
+                        docker rm -f '"${containerName}"' 2>/dev/null || echo "Container '"${containerName}"' not found"
+                    '''
+                    }
+                    deleteDir()
+                }
             }
         }
         failure {
