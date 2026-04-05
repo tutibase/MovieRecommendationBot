@@ -5,6 +5,7 @@ pipeline {
         TF_DIR = 'MovieRecommendationBot/terraform'
         ANSIBLE_DIR = 'MovieRecommendationBot/ansible'
         APP_DIR = '/opt/movie-bot'
+        TF_PLUGIN_CACHE_DIR = '/var/jenkins_home/.terraform.d/plugin-cache'
 
         // Terraform variables (значения по умолчанию, будут переопределены через withCredentials)
         TF_VAR_cloud_id     = ''
@@ -34,10 +35,15 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    // 🔍 Отладка: показываем файлы в директории перед инициализацией
-                    sh 'echo "📁 Files in terraform/:" && ls -la'
-
-                    sh 'terraform init -input=false -no-color'
+                    sh '''
+                # Создаём директорию кэша, если не существует
+                mkdir -p ${TF_PLUGIN_CACHE_DIR}
+                
+                # Инициализация с использованием локального кэша
+                # -get-plugins=false предотвращает попытку скачивания, если провайдер уже есть
+                terraform init -input=false -no-color -get-plugins=false || \
+                terraform init -input=false -no-color
+            '''
                 }
                 echo "✅ Terraform initialized"
             }
