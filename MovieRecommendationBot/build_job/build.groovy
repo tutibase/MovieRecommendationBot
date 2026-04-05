@@ -1,49 +1,50 @@
 pipeline {
-    agent {
-        docker {
-            image 'postgres:15'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         DB_PASSWORD = credentials('DB_PASSWORD')
         DB_NAME = 'users_db'
         DB_USER = 'postgres'
-        DB_CONTAINER_NAME = "pg_${BUILD_ID}"
+        // Используем префикс с именем задания для уникальности
+        DB_CONTAINER_PREFIX = "pg_${JOB_NAME}_${BUILD_ID}".replaceAll('[^a-zA-Z0-9_]', '_')
     }
 
     stages {
         stage('Database Setup') {
             steps {
-                sh '''
-                    # 1. Запуск контейнера PostgreSQL в фоновом режиме
-                    docker run -d \
-                        --name ${DB_CONTAINER_NAME} \
-                        -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-                        -e POSTGRES_DB=${DB_NAME} \
-                        -e POSTGRES_USER=${DB_USER} \
-                        -p 5432:5432 \
-                        postgres:15
+                script {
+                    // Объявляем переменную в области script, чтобы она была доступна ниже
+                    def dbContainerName = "${env.DB_CONTAINER_PREFIX}"
 
-                    # 2. Ожидание готовности БД (проверка TCP-порта)
-                    echo "Waiting for PostgreSQL to be ready..."
-                    until docker exec ${DB_CONTAINER_NAME} pg_isready -U ${DB_USER}; do
-                        sleep 2
-                    done
+                    sh """
+                        # Запуск контейнера PostgreSQL
+                        docker run -d \\
+                            --name ${dbContainerName} \\
+                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \\
+                            -e POSTGRES_DB=${DB_NAME} \\
+                            -e POSTGRES_USER=${DB_USER} \\
+                            -p 5432:5432 \\
+                            postgres:15
 
-                    # 3. Применение SQL-скрипта
-                    cd "${WORKSPACE}/MovieRecommendationBot"
-                    SQL_FILE="src/main/resources/users_db.sql"
-                    
-                    if [ -f "$SQL_FILE" ]; then
-                        docker exec -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} \
-                            psql -U ${DB_USER} -d ${DB_NAME} -f /workspace/MovieRecommendationBot/$SQL_FILE
-                    else
-                        echo "File not found: $SQL_FILE"
-                        exit 1
-                    fi
-                '''
+                        # Ожидание готовности БД
+                        echo "Waiting for PostgreSQL..."
+                        until docker exec ${dbContainerName} pg_isready -U ${DB_USER}; do
+                            sleep 2
+                        done
+
+                        # Применение SQL-скрипта
+                        cd "${WORKSPACE}/MovieRecommendationBot"
+                        SQL_FILE="src/main/resources/users_db.sql"
+                        
+                        if [ -f "\$SQL_FILE" ]; then
+                            docker exec -e PGPASSWORD=${DB_PASSWORD} ${dbContainerName} \\
+                                psql -U ${DB_USER} -d ${DB_NAME} -f /workspace/MovieRecommendationBot/\$SQL_FILE
+                        else
+                            echo "File not found: \$SQL_FILE"
+                            exit 1
+                        fi
+                    """
+                }
             }
         }
 
@@ -53,8 +54,6 @@ pipeline {
                     cd "${WORKSPACE}/MovieRecommendationBot"
                     echo "🔹 DB_PASSWORD is set: [${DB_PASSWORD:+***SET***}]"
                     
-                    # Передаем параметры подключения к БД в Maven
-                    # Хост 'localhost', так как мы в той же сети контейнера
                     mvn clean package \
                       -DskipTests \
                       -Ddb.password=${DB_PASSWORD} \
@@ -66,7 +65,7 @@ pipeline {
             }
             post {
                 success {
-                    archiveArtifacts artifacts: 'MovieRecommendationBot/target/MovieRecommendationBot-*.jar', fingerprint: true
+                    archiveArtifacts artifacts: 'MovieRecommendationBot/target/MovieRecommendationBot-*.jar', fingerprint: true, allowEmptyArchive: true
                 }
             }
         }
@@ -74,8 +73,16 @@ pipeline {
 
     post {
         always {
-            sh "docker rm -f ${DB_CONTAINER_NAME} 2>/dev/null || true"
-            deleteDir()
+            script {
+                // Безопасная очистка: используем ту же логику формирования имени
+                def containerName = "${env.DB_CONTAINER_PREFIX}"
+                sh """
+                    echo "Cleaning up container: ${containerName}"
+                    docker rm -f ${containerName} 2>/dev/null || echo "Container ${containerName} not found or already removed"
+                """
+                // Очистка рабочей директории
+                deleteDir()
+            }
         }
         failure {
             echo "\033[31m Pipeline failed! Check console output.\033[0m"
