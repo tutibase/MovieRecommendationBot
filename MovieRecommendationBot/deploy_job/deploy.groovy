@@ -105,6 +105,13 @@ pipeline {
                 ]) {
                     sh """
                 echo "Deploying to ${env.VM_IP}..."
+
+                ssh -i \\${SSH_KEY_FILE} \\\\
+                    -o StrictHostKeyChecking=no \\\\
+                    \\${SSH_USER:
+                    -ubuntu}@${env.VM_IP} "
+                        rm -f ${APP_DIR}/.env
+                    "
                 
                 # 1. Гарантированно создаём директорию на ВМ
                 ssh -i \${SSH_KEY_FILE} \\
