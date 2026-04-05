@@ -113,15 +113,16 @@ pipeline {
             steps {
                 script {
                     echo "Waiting for SSH on ${env.SERVER_IP}..."
+                    def sshReady = false  // ← Флаг успеха
+
                     timeout(time: 10, unit: 'MINUTES') {
-                        // Используем withCredentials для безопасного доступа к ключу
                         withCredentials([sshUserPrivateKey(
                                 credentialsId: 'ssh-private-key',
                                 keyFileVariable: 'SSH_KEY_FILE',
                                 usernameVariable: 'SSH_USER',
                                 passphraseVariable: ''
                         )]) {
-                            for (int i = 0; i < 40; i++) {  // 40 * 15 сек = 10 минут
+                            for (int i = 0; i < 40; i++) {
                                 def result = sh(
                                         script: """
                                 ssh -i \${SSH_KEY_FILE} \\
@@ -134,13 +135,18 @@ pipeline {
                                 )
                                 if (result == 0) {
                                     echo "✅ SSH ready"
-                                    return
+                                    sshReady = true  // ← Устанавливаем флаг
+                                    break            // ← Выходим из цикла
                                 }
                                 echo "⏳ Attempt ${i+1}/40..."
                                 sleep(time: 15, unit: 'SECONDS')
                             }
                         }
-                        error("SSH timeout after 10 minutes")
+
+                        // ← Проверка флага ПОСЛЕ выхода из withCredentials
+                        if (!sshReady) {
+                            error("SSH timeout after 10 minutes")
+                        }
                     }
                 }
             }
