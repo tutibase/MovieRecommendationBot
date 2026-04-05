@@ -112,18 +112,21 @@ pipeline {
         stage('Save Infrastructure Outputs') {
             steps {
                 script {
-                    // Создаём директорию для выводов
-                    sh "mkdir -p outputs"
+                    // Абсолютный путь к директории outputs
+                    def outputsDir = "${env.WORKSPACE}/MovieRecommendationBot/outputs"
 
-                    // Сохраняем IP в простой текстовый файл
-                    sh "echo -n '${env.SERVER_IP}' > outputs/vm_ip.txt"
+                    // Создаём директорию
+                    sh "mkdir -p ${outputsDir}"
 
-                    // (Опционально) Сохраняем все outputs Terraform в JSON
+                    // Сохраняем IP
+                    sh "echo -n '${env.SERVER_IP}' > ${outputsDir}/vm_ip.txt"
+
+                    // Сохраняем JSON-выводы Terraform
                     dir("${TF_DIR}") {
-                        sh "terraform output -json > ../outputs/terraform_outputs.json"
+                        sh "terraform output -json > ${outputsDir}/terraform_outputs.json"
                     }
 
-                    echo "✅ Outputs saved to outputs/"
+                    echo "✅ Outputs saved to ${outputsDir}"
                 }
             }
         }
