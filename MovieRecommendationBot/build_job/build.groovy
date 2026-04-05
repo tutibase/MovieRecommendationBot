@@ -12,64 +12,73 @@ pipeline {
         stage('Database Setup') {
             steps {
                 script {
-                    sh(script: '''
-                        export DOCKER_HOST=unix:///var/run/docker.sock
-                        export DOCKER_TLS_VERIFY=""
-                        export DOCKER_CERT_PATH=""
-                        
-                        docker run -d \
-                            --name "${DB_CONTAINER_PREFIX}" \
-                            -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
-                            -e POSTGRES_DB="${DB_NAME}" \
-                            -e POSTGRES_USER="${DB_USER}" \
-                            -p 5432:5432 \
-                            postgres:15
+                    // withEnv передаёт переменные Jenkins в оболочку sh
+                    withEnv([
+                            "DB_CONTAINER_PREFIX=${env.DB_CONTAINER_PREFIX}",
+                            "DB_PASSWORD=${env.DB_PASSWORD}",
+                            "DB_NAME=${env.DB_NAME}",
+                            "DB_USER=${env.DB_USER}",
+                            "WORKSPACE=${env.WORKSPACE}"
+                    ]) {
+                        sh '''
+                            # Настройка Docker
+                            export DOCKER_HOST=unix:///var/run/docker.sock
+                            export DOCKER_TLS_VERIFY=""
+                            export DOCKER_CERT_PATH=""
+                            
+                            # Запуск PostgreSQL (переменные подставляются shell'ом)
+                            docker run -d \
+                                --name "${DB_CONTAINER_PREFIX}" \
+                                -e POSTGRES_PASSWORD="${DB_PASSWORD}" \
+                                -e POSTGRES_DB="${DB_NAME}" \
+                                -e POSTGRES_USER="${DB_USER}" \
+                                -p 5432:5432 \
+                                postgres:15
 
-                        echo "Waiting for PostgreSQL..."
-                        until docker exec "${DB_CONTAINER_PREFIX}" pg_isready -U "${DB_USER}"; do
-                            sleep 2
-                        done
+                            # Ожидание готовности БД
+                            echo "Waiting for PostgreSQL..."
+                            until docker exec "${DB_CONTAINER_PREFIX}" pg_isready -U "${DB_USER}"; do
+                                sleep 2
+                            done
 
-                        cd "${WORKSPACE}/MovieRecommendationBot"
-                        SQL_FILE="src/main/resources/users_db.sql"
-                        
-                        if [ -f "${SQL_FILE}" ]; then
-                            docker exec -e PGPASSWORD="${DB_PASSWORD}" "${DB_CONTAINER_PREFIX}" \
-                                psql -U "${DB_USER}" -d "${DB_NAME}" -f "/workspace/MovieRecommendationBot/${SQL_FILE}"
-                        else
-                            echo "File not found: ${SQL_FILE}"
-                            exit 1
-                        fi
-                    ''', environment: [
-                            DB_CONTAINER_PREFIX: env.DB_CONTAINER_PREFIX,
-                            DB_PASSWORD: env.DB_PASSWORD,
-                            DB_NAME: env.DB_NAME,
-                            DB_USER: env.DB_USER,
-                            WORKSPACE: env.WORKSPACE
-                    ])
+                            # Применение SQL-скрипта
+                            cd "${WORKSPACE}/MovieRecommendationBot"
+                            SQL_FILE="src/main/resources/users_db.sql"
+                            
+                            if [ -f "${SQL_FILE}" ]; then
+                                docker exec -e PGPASSWORD="${DB_PASSWORD}" "${DB_CONTAINER_PREFIX}" \
+                                    psql -U "${DB_USER}" -d "${DB_NAME}" -f "/workspace/MovieRecommendationBot/${SQL_FILE}"
+                            else
+                                echo "File not found: ${SQL_FILE}"
+                                exit 1
+                            fi
+                        '''
+                    }
                 }
             }
         }
 
         stage('Build & jOOQ') {
             steps {
-                sh(script: '''
-                    cd "${WORKSPACE}/MovieRecommendationBot"
-                    echo "🔹 DB_PASSWORD is set"
-                    
-                    mvn clean package \
-                      -DskipTests \
-                      -Ddb.password="${DB_PASSWORD}" \
-                      -Ddb.host=localhost \
-                      -Ddb.user="${DB_USER}" \
-                      -Ddb.name="${DB_NAME}" \
-                      -Dstyle.color=always
-                ''', environment: [
-                        DB_PASSWORD: env.DB_PASSWORD,
-                        DB_USER: env.DB_USER,
-                        DB_NAME: env.DB_NAME,
-                        WORKSPACE: env.WORKSPACE
-                ])
+                withEnv([
+                        "DB_PASSWORD=${env.DB_PASSWORD}",
+                        "DB_USER=${env.DB_USER}",
+                        "DB_NAME=${env.DB_NAME}",
+                        "WORKSPACE=${env.WORKSPACE}"
+                ]) {
+                    sh '''
+                        cd "${WORKSPACE}/MovieRecommendationBot"
+                        echo "🔹 DB_PASSWORD is set"
+                        
+                        mvn clean package \
+                          -DskipTests \
+                          -Ddb.password="${DB_PASSWORD}" \
+                          -Ddb.host=localhost \
+                          -Ddb.user="${DB_USER}" \
+                          -Ddb.name="${DB_NAME}" \
+                          -Dstyle.color=always
+                    '''
+                }
             }
             post {
                 success {
@@ -82,17 +91,18 @@ pipeline {
     post {
         always {
             script {
+                // Формируем имя контейнера на основе гарантированно доступных переменных
                 def containerName = "pg_${env.JOB_NAME}_${env.BUILD_ID}".replaceAll('[^a-zA-Z0-9_]', '_')
 
-                sh(script: '''
-                    echo "Cleaning up container: ${containerName}"
-                    export DOCKER_HOST=unix:///var/run/docker.sock
-                    export DOCKER_TLS_VERIFY=""
-                    export DOCKER_CERT_PATH=""
-                    docker rm -f "${containerName}" 2>/dev/null || echo "Container ${containerName} not found"
-                ''', environment: [
-                        containerName: containerName
-                ])
+                withEnv(["containerName=${containerName}"]) {
+                    sh '''
+                        echo "Cleaning up container: ${containerName}"
+                        export DOCKER_HOST=unix:///var/run/docker.sock
+                        export DOCKER_TLS_VERIFY=""
+                        export DOCKER_CERT_PATH=""
+                        docker rm -f "${containerName}" 2>/dev/null || echo "Container ${containerName} not found"
+                    '''
+                }
 
                 dir(env.WORKSPACE) {
                     deleteDir()
