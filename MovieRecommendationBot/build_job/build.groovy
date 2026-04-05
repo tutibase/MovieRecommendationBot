@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        DB_PASSWORD = credentials('POSTGRES_DB_PASSWORD')
+        DB_PASSWORD = credentials('DB_PASSWORD')
     }
 
     stages {
