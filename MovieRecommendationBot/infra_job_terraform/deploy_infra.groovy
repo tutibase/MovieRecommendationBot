@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        TF_DIR = 'MovieRecommendationBot/deploy_infra_terraform/terraform'
-        ANSIBLE_DIR = 'MovieRecommendationBot/deploy_infra_terraform/ansible'
+        TF_DIR = 'MovieRecommendationBot/infra_job_terraform/terraform'
+        ANSIBLE_DIR = 'MovieRecommendationBot/infra_job_terraform/ansible'
         APP_DIR = '/opt/movie-bot'
         TF_PLUGIN_CACHE_DIR = '/var/jenkins_home/.terraform.d/plugin-cache'
 
@@ -221,9 +221,9 @@ EOF
             steps {
                 archiveArtifacts(
                         artifacts: '''
-                MovieRecommendationBot/deploy_infra_terraform/terraform/*.tf,
-                MovieRecommendationBot/deploy_infra_terraform/ansible/**/*.yml,
-                MovieRecommendationBot/deploy_infra_terraform/ansible/hosts.ini,
+                MovieRecommendationBot/infra_job_terraform/terraform/*.tf,
+                MovieRecommendationBot/infra_job_terraform/ansible/**/*.yml,
+                MovieRecommendationBot/infra_job_terraform/ansible/hosts.ini,
                 MovieRecommendationBot/outputs/**/*
             ''',
                         allowEmptyArchive: true
