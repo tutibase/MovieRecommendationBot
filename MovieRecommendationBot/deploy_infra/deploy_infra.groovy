@@ -148,39 +148,44 @@ pipeline {
 
         stage('Ansible Deploy') {
             steps {
-                sh """
-                cat > ${ANSIBLE_DIR}/inventory_dynamic.yml << EOF
-                ---
-                all:
-                  children:
-                    movie_bot_vms:
-                      hosts:
-                        poly-bot-vm:
-                          ansible_host: ${env.SERVER_IP}
-                          ansible_user: ubuntu
-                          ansible_python_interpreter: /usr/bin/python3
-                EOF
-                """
+                script {
+                    // ✅ Исправленный heredoc: EOF без отступов
+                    sh """
+cat > ${ANSIBLE_DIR}/inventory_dynamic.yml << EOF
+---
+all:
+  children:
+    movie_bot_vms:
+      hosts:
+        poly-bot-vm:
+          ansible_host: ${env.SERVER_IP}
+          ansible_user: ubuntu
+          ansible_python_interpreter: /usr/bin/python3
+EOF
+            """
 
-                withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ssh-private-key',
-                        keyFileVariable: 'SSH_KEY_FILE',
-                        usernameVariable: 'SSH_USER',
-                        passphraseVariable: ''
-                )]) {
-                    dir("${ANSIBLE_DIR}") {
-                        sh """
-                    ansible-playbook -i inventory_dynamic.yml playbook.yml \\
-                        --private-key \${SSH_KEY_FILE} \\
-                        -u \${SSH_USER:-ubuntu} \\
-                        -vv
-                        """
+                    // Безопасное использование SSH-ключа
+                    withCredentials([sshUserPrivateKey(
+                            credentialsId: 'ssh-private-key',
+                            keyFileVariable: 'SSH_KEY_FILE',
+                            usernameVariable: 'SSH_USER',
+                            passphraseVariable: ''
+                    )]) {
+                        dir("${ANSIBLE_DIR}") {
+                            sh """
+                        ansible-playbook -i inventory_dynamic.yml playbook.yml \\
+                            --private-key \${SSH_KEY_FILE} \\
+                            -u \${SSH_USER:-ubuntu} \\
+                            -vv
+                    """
+                        }
                     }
+
+                    // Очистка временного inventory
+                    sh "rm -f ${ANSIBLE_DIR}/inventory_dynamic.yml"
+
+                    echo "✅ Application deployed"
                 }
-
-                sh "rm -f ${ANSIBLE_DIR}/inventory_dynamic.yml"
-
-                echo "✅ Application deployed"
             }
         }
 
