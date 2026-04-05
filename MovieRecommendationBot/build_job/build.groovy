@@ -5,6 +5,29 @@ pipeline {
         DB_PASSWORD = credentials('DB_PASSWORD')
     }
 
+    // Запуск дополнительного контейнера с PostgreSQL
+    services {
+        postgres {
+            image 'postgres:15'
+            environment {
+                POSTGRES_USER: 'postgres'
+                POSTGRES_PASSWORD: "${DB_PASSWORD}"
+                POSTGRES_DB: 'users_db'
+            }
+            ports {
+                innerPort 5432
+                outerPort 5432
+            }
+        }
+    }
+
+    environment {
+        DB_PASSWORD = credentials('DB_PASSWORD')
+        // Хост для подключения внутри сети Docker
+        DB_HOST = 'postgres'
+        DB_USER = 'postgres'
+    }
+
     stages {
         stage('Database Setup') {
             steps {
@@ -13,8 +36,14 @@ pipeline {
                     SQL_FILE="src/main/resources/users_db.sql"
                     
                     if [ -f "$SQL_FILE" ]; then
-                        createdb users_db 2>/dev/null || echo "DB exists"
-                        psql -d users_db -f "$SQL_FILE"
+                        # Ждем готовности БД
+                        until pg_isready -h ${DB_HOST} -U ${DB_USER}; do
+                            echo "Waiting for database..."
+                            sleep 2
+                        done
+                        
+                        # Применяем скрипт
+                        PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST} -U ${DB_USER} -d users_db -f "$SQL_FILE"
                     else
                         echo "File not found: $SQL_FILE"
                         exit 1
