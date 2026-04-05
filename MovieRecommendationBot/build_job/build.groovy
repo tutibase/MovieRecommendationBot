@@ -1,11 +1,5 @@
 pipeline {
-    agent {
-        label 'poly-agent'
-    }
-
-    options {
-        ansiColor('xterm')
-    }
+    agent any
 
     environment {
         DB_PASSWORD = credentials('DB_PASSWORD')
