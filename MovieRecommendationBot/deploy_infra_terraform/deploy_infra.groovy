@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        TF_DIR = 'MovieRecommendationBot/terraform'
-        ANSIBLE_DIR = 'MovieRecommendationBot/ansible'
+        TF_DIR = 'MovieRecommendationBot/deploy_infra_terraform/terraform'
+        ANSIBLE_DIR = 'MovieRecommendationBot/deploy_infra_terraform/ansible'
         APP_DIR = '/opt/movie-bot'
         TF_PLUGIN_CACHE_DIR = '/var/jenkins_home/.terraform.d/plugin-cache'
 
@@ -144,7 +144,7 @@ pipeline {
                                 usernameVariable: 'SSH_USER',
                                 passphraseVariable: ''
                         )]) {
-                            for (int i = 0; i < 40; i++) {
+                            for (int i = 0; i < 10; i++) {
                                 def result = sh(
                                         script: """
                                 ssh -i \${SSH_KEY_FILE} \\
@@ -160,8 +160,8 @@ pipeline {
                                     sshReady = true  // ← Устанавливаем флаг
                                     break            // ← Выходим из цикла
                                 }
-                                echo "⏳ Attempt ${i+1}/40..."
-                                sleep(time: 15, unit: 'SECONDS')
+                                echo "⏳ Attempt ${i+1}/10..."
+                                sleep(time: 10, unit: 'SECONDS')
                             }
                         }
 
@@ -221,9 +221,9 @@ EOF
             steps {
                 archiveArtifacts(
                         artifacts: '''
-                MovieRecommendationBot/terraform/*.tf,
-                MovieRecommendationBot/ansible/**/*.yml,
-                MovieRecommendationBot/ansible/hosts.ini,
+                MovieRecommendationBot/deploy_infra_terraform/terraform/*.tf,
+                MovieRecommendationBot/deploy_infra_terraform/ansible/**/*.yml,
+                MovieRecommendationBot/deploy_infra_terraform/ansible/hosts.ini,
                 MovieRecommendationBot/outputs/**/*
             ''',
                         allowEmptyArchive: true
