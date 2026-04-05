@@ -27,11 +27,11 @@ pipeline {
                 script {
                     // Копируем файл с IP из джобы cloud_infra
                     copyArtifacts(
-                            projectName: 'cloud_infra',  // Точное имя джобы
-                            selector: lastSuccessful(),  // Последняя успешная сборка
-                            filter: 'outputs/vm_ip.txt', // Фильтр: только файл с IP
-                            target: '.',                 // Скопировать в корень воркспейса
-                            flatten: true                // Убрать пути, положить в корень
+                            projectName: 'cloud_infra',
+                            selector: lastSuccessful(),
+                            filter: 'MovieRecommendationBot/outputs/vm_ip.txt',  // ← ✅ Добавлен префикс!
+                            target: '.',
+                            flatten: true  // Благодаря этому файл появится как просто 'vm_ip.txt'
                     )
 
                     // Читаем IP из файла
