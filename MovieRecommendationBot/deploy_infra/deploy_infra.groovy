@@ -34,6 +34,9 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
+                    // 🔍 Отладка: показываем файлы в директории перед инициализацией
+                    sh 'echo "📁 Files in terraform/:" && ls -la'
+
                     sh 'terraform init -input=false -no-color'
                 }
                 echo "✅ Terraform initialized"
