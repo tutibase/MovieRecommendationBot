@@ -83,25 +83,28 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'DB_PASSWORD', variable: 'DB_PASSWORD_SAFE')]) {
                         withEnv([
-                                "DB_HOST=${env.DB_HOST}",
+                                "DB_CONTAINER_NAME=${env.DB_CONTAINER_NAME}",
                                 "DB_PASSWORD=${env.DB_PASSWORD}",
                                 "DB_USER=${env.DB_USER}",
                                 "DB_NAME=${env.DB_NAME}",
                                 "WORKSPACE=${env.WORKSPACE}"
                         ]) {
                             sh '''
-                                cd "${WORKSPACE}/MovieRecommendationBot"
-                                echo "🔹 Building with DB_HOST=${DB_HOST}"
-                                
-                                # Передаём параметры подключения к БД в Maven
-                                mvn clean package \
-                                  -DskipTests \
-                                  -Ddb.password="${DB_PASSWORD_SAFE}" \
-                                  -Ddb.host="${DB_HOST}" \
-                                  -Ddb.user="${DB_USER}" \
-                                  -Ddb.name="${DB_NAME}" \
-                                  -Dstyle.color=always
-                            '''
+                        cd "${WORKSPACE}/MovieRecommendationBot"
+                        
+                        # Формируем JDBC URL: имя контейнера работает как hostname в Docker network
+                        DB_URL="jdbc:postgresql://${DB_CONTAINER_NAME}:5432/${DB_NAME}"
+                        
+                        echo "🔹 Building with DB_URL=${DB_URL}"
+                        
+                        # Передаём параметры в Maven
+                        mvn clean package \
+                          -DskipTests \
+                          -Ddb.url="${DB_URL}" \
+                          -Ddb.user="${DB_USER}" \
+                          -Ddb.password="${DB_PASSWORD_SAFE}" \
+                          -Dstyle.color=always
+                    '''
                         }
                     }
                 }

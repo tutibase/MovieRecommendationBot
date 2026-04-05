@@ -14,6 +14,18 @@
     <java.version>21</java.version>
     <spring.version>6.2.5</spring.version>
     <spring.restdocs.version>3.0.0</spring.restdocs.version>
+
+    <java.version>21</java.version>
+    <spring.version>6.2.5</spring.version>
+    <spring.restdocs.version>3.0.0</spring.restdocs.version>
+
+    <!-- Параметры подключения к БД (значения по умолчанию) -->
+    <db.host>localhost</db.host>
+    <db.port>5432</db.port>
+    <db.name>users_db</db.name>
+    <db.user>postgres</db.user>
+    <!-- Полный JDBC URL -->
+    <db.url>jdbc:postgresql://${db.host}:${db.port}/${db.name}</db.url>
   </properties>
 
   <build>
@@ -133,19 +145,10 @@
         </executions>
       </plugin>
 
-      <!-- Maven JOOQ-codegen Plugin -->
       <plugin>
         <groupId>org.jooq</groupId>
         <artifactId>jooq-codegen-maven</artifactId>
         <version>3.18.4</version>
-
-        <dependencies>
-          <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>1.19.3</version>
-          </dependency>
-        </dependencies>
 
         <executions>
           <execution>
@@ -158,8 +161,9 @@
 
         <configuration>
           <jdbc>
-            <url>jdbc:postgresql://localhost:5432/users_db</url>
-            <user>postgres</user>
+            <!-- Используем свойства Maven -->
+            <url>${db.url}</url>
+            <user>${db.user}</user>
             <password>${db.password}</password>
           </jdbc>
           <generator>
