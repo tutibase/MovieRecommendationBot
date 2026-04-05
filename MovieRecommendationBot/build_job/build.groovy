@@ -16,7 +16,7 @@ pipeline {
                     // Объявляем переменную в области script, чтобы она была доступна ниже
                     def dbContainerName = "${env.DB_CONTAINER_PREFIX}"
 
-                    sh """
+                    sh '''
                         # Сброс переменной DOCKER_HOST для использования локального сокета
                         export DOCKER_HOST=unix:///var/run/docker.sock
                         export DOCKER_TLS_VERIFY=""
@@ -47,7 +47,7 @@ pipeline {
                             echo "File not found: \$SQL_FILE"
                             exit 1
                         fi
-                    """
+                    '''
                 }
             }
         }
