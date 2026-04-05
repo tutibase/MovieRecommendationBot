@@ -17,6 +17,10 @@ pipeline {
                     def dbContainerName = "${env.DB_CONTAINER_PREFIX}"
 
                     sh """
+                        # Сброс переменной DOCKER_HOST для использования локального сокета
+                        export DOCKER_HOST=unix:///var/run/docker.sock
+                        export DOCKER_TLS_VERIFY=""
+                        export DOCKER_CERT_PATH=""
                         # Запуск контейнера PostgreSQL
                         docker run -d \\
                             --name ${dbContainerName} \\
