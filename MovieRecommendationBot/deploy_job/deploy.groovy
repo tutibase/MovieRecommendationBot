@@ -94,85 +94,68 @@ pipeline {
 
         stage('Deploy Application') {
             steps {
-                withCredentials([
-                        file(credentialsId: 'app-env-content', variable: 'APP_ENV_FILE'),
-                        sshUserPrivateKey(
-                                credentialsId: 'ssh-private-key',
-                                keyFileVariable: 'SSH_KEY_FILE',
-                                usernameVariable: 'SSH_USER',
-                                passphraseVariable: ''
-                        )
-                ]) {
-                    sh """
-                echo "Deploying to ${env.VM_IP}..."
+                script {
+                    def deployHost = env.VM_IP
 
-                ssh -i \\${SSH_KEY_FILE} \\\\
-                    -o StrictHostKeyChecking=no \\\\
-                    \\${SSH_USER:
-                    -ubuntu}@${env.VM_IP} "
-                        rm -f ${APP_DIR}/.env
-                    "
-                
-                # 1. Гарантированно создаём директорию на ВМ
-                ssh -i \${SSH_KEY_FILE} \\
-                    -o StrictHostKeyChecking=no \\
-                    -o ConnectTimeout=10 \\
-                    \${SSH_USER:-ubuntu}@${env.VM_IP} "
-                        mkdir -p ${APP_DIR}
-                    "
-                
-                # 2. Копируем готовый .env файл напрямую через scp
-                echo "Copying .env file..."
-                scp -i \${SSH_KEY_FILE} \\
-                    -o StrictHostKeyChecking=no \\
-                    -o ConnectTimeout=30 \\
-                    \"${APP_ENV_FILE}\" \\
-                    \${SSH_USER:-ubuntu}@${env.VM_IP}:${APP_DIR}/.env
-                
-                # 3. Копируем docker-compose.yml (если ещё не скопирован)
-                if [ -f "${COMPOSE_FILE}" ]; then
+                    withCredentials([
+                            file(credentialsId: 'app-env-content', variable: 'APP_ENV_FILE'),
+                            sshUserPrivateKey(
+                                    credentialsId: 'ssh-private-key',
+                                    keyFileVariable: 'SSH_KEY_FILE',
+                                    usernameVariable: 'SSH_USER',
+                                    passphraseVariable: ''
+                            )
+                    ]) {
+                        sh """
+                    echo "Deploying to ${deployHost}..."
+                    
+                    ssh -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=10 \\
+                        ${deployUser}@${deployHost} "
+                            rm -f ${APP_DIR}/.env
+                        "
+                    
+                    # Копируем новый .env файл
+                    echo "Copying .env file..."
                     scp -i \${SSH_KEY_FILE} \\
                         -o StrictHostKeyChecking=no \\
                         -o ConnectTimeout=30 \\
-                        ${COMPOSE_FILE} \\
-                        \${SSH_USER:-ubuntu}@${env.VM_IP}:${APP_DIR}/
-                fi
-                
-                # 4. Запускаем приложение на ВМ
-                echo "Starting application..."
-                ssh -i \${SSH_KEY_FILE} \\
-                    -o StrictHostKeyChecking=no \\
-                    -o ConnectTimeout=10 \\
-                    \${SSH_USER:-ubuntu}@${env.VM_IP} "
-                        cd ${APP_DIR}
-                        
-                        # Проверка, что .env скопировался
-                        if [ -f .env ]; then
-                            echo '✅ .env file exists'
-                            # Покажем только названия переменных (без значений!) для отладки
-                            echo '🔍 Variables in .env:'
-                            cut -d'=' -f1 .env | head -10
-                        else
-                            echo '❌ ERROR: .env file not found!'
-                            exit 1
-                        fi
-                        
-                        echo 'Pulling images...'
-                        docker compose pull
-                        
-                        echo 'Stopping old containers...'
-                        docker compose down || true
-                        
-                        echo 'Starting containers...'
-                        docker compose up -d --force-recreate
-                        
-                        echo 'Waiting for services...'
-                        sleep 15
-                        
-                        echo 'Checking status...'
-                        docker compose ps
-                    "
-            """
+                        \"\${APP_ENV_FILE}\" \\
+                        ${deployUser}@${deployHost}:${APP_DIR}/.env
+                    
+                    # Копируем docker-compose.yml
+                    if [ -f "${COMPOSE_FILE}" ]; then
+                        scp -i \${SSH_KEY_FILE} \\
+                            -o StrictHostKeyChecking=no \\
+                            -o ConnectTimeout=30 \\
+                            ${COMPOSE_FILE} \\
+                            ${deployUser}@${deployHost}:${APP_DIR}/
+                    fi
+                    
+                    # Запускаем приложение
+                    echo "Starting application..."
+                    ssh -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=10 \\
+                        ${deployUser}@${deployHost} "
+                            cd ${APP_DIR}
+                            
+                            if [ -f .env ]; then
+                                echo '✅ .env file exists'
+                            else
+                                echo '❌ ERROR: .env file not found!'
+                                exit 1
+                            fi
+                            
+                            docker compose pull
+                            docker compose down || true
+                            docker compose up -d --force-recreate
+                            sleep 15
+                            docker compose ps
+                        "
+                """
+                    }
                 }
             }
         }
