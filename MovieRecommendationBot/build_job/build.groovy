@@ -1,49 +1,44 @@
 pipeline {
-    agent any
-
-    environment {
-        DB_PASSWORD = credentials('DB_PASSWORD')
-    }
-
-    // Запуск дополнительного контейнера с PostgreSQL
-    services {
-        postgres {
+    agent {
+        docker {
             image 'postgres:15'
-            environment {
-                POSTGRES_USER: 'postgres'
-                POSTGRES_PASSWORD: "${DB_PASSWORD}"
-                POSTGRES_DB: 'users_db'
-            }
-            ports {
-                innerPort 5432
-                outerPort 5432
-            }
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
     environment {
         DB_PASSWORD = credentials('DB_PASSWORD')
-        // Хост для подключения внутри сети Docker
-        DB_HOST = 'postgres'
+        DB_NAME = 'users_db'
         DB_USER = 'postgres'
+        DB_CONTAINER_NAME = "pg_${BUILD_ID}"
     }
 
     stages {
         stage('Database Setup') {
             steps {
                 sh '''
+                    # 1. Запуск контейнера PostgreSQL в фоновом режиме
+                    docker run -d \
+                        --name ${DB_CONTAINER_NAME} \
+                        -e POSTGRES_PASSWORD=${DB_PASSWORD} \
+                        -e POSTGRES_DB=${DB_NAME} \
+                        -e POSTGRES_USER=${DB_USER} \
+                        -p 5432:5432 \
+                        postgres:15
+
+                    # 2. Ожидание готовности БД (проверка TCP-порта)
+                    echo "Waiting for PostgreSQL to be ready..."
+                    until docker exec ${DB_CONTAINER_NAME} pg_isready -U ${DB_USER}; do
+                        sleep 2
+                    done
+
+                    # 3. Применение SQL-скрипта
                     cd "${WORKSPACE}/MovieRecommendationBot"
                     SQL_FILE="src/main/resources/users_db.sql"
                     
                     if [ -f "$SQL_FILE" ]; then
-                        # Ждем готовности БД
-                        until pg_isready -h ${DB_HOST} -U ${DB_USER}; do
-                            echo "Waiting for database..."
-                            sleep 2
-                        done
-                        
-                        # Применяем скрипт
-                        PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST} -U ${DB_USER} -d users_db -f "$SQL_FILE"
+                        docker exec -e PGPASSWORD=${DB_PASSWORD} ${DB_CONTAINER_NAME} \
+                            psql -U ${DB_USER} -d ${DB_NAME} -f /workspace/MovieRecommendationBot/$SQL_FILE
                     else
                         echo "File not found: $SQL_FILE"
                         exit 1
@@ -57,9 +52,15 @@ pipeline {
                 sh '''
                     cd "${WORKSPACE}/MovieRecommendationBot"
                     echo "🔹 DB_PASSWORD is set: [${DB_PASSWORD:+***SET***}]"
+                    
+                    # Передаем параметры подключения к БД в Maven
+                    # Хост 'localhost', так как мы в той же сети контейнера
                     mvn clean package \
                       -DskipTests \
-                      -Ddb.password=$DB_PASSWORD \
+                      -Ddb.password=${DB_PASSWORD} \
+                      -Ddb.host=localhost \
+                      -Ddb.user=${DB_USER} \
+                      -Ddb.name=${DB_NAME} \
                       -Dstyle.color=always
                 '''
             }
@@ -67,15 +68,13 @@ pipeline {
                 success {
                     archiveArtifacts artifacts: 'MovieRecommendationBot/target/MovieRecommendationBot-*.jar', fingerprint: true
                 }
-                always {
-                    sh "docker rm -f \$(docker ps -a -q --filter name=tc-) 2>/dev/null || true"
-                }
             }
         }
     }
 
     post {
         always {
+            sh "docker rm -f ${DB_CONTAINER_NAME} 2>/dev/null || true"
             deleteDir()
         }
         failure {
