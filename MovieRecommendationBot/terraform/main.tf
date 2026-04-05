@@ -55,7 +55,7 @@ variable "subnet_id" {
 variable "security_group_id" {
   type        = string
   description = "Existing security group ID"
-  default     = "enpv49erji0f40prfu72"
+  default     = "enpkd9np0qbhc064o9mu"
 }
 
 variable "instance_name" {
