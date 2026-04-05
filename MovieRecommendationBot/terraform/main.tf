@@ -1,4 +1,3 @@
-# providers.tf — встроен в main.tf для простоты
 terraform {
   required_version = ">= 1.0"
 
@@ -11,12 +10,15 @@ terraform {
 }
 
 provider "yandex" {
-  cloud_id                 = var.cloud_id
-  folder_id                = var.folder_id
-  zone                     = var.zone
+  cloud_id  = var.cloud_id
+  folder_id = var.folder_id
+  token     = var.yc_token
+  zone      = var.zone
 }
 
-# variables.tf — встроен в main.tf
+# ==========================================
+# Variables
+# ==========================================
 variable "cloud_id" {
   type        = string
   description = "Yandex Cloud ID"
@@ -25,6 +27,12 @@ variable "cloud_id" {
 variable "folder_id" {
   type        = string
   description = "Folder ID for resources"
+}
+
+variable "yc_token" {
+  type        = string
+  description = "IAM token for authentication"
+  sensitive   = true
 }
 
 variable "zone" {
@@ -41,21 +49,24 @@ variable "ssh_public_key" {
 variable "subnet_id" {
   type        = string
   description = "Existing subnet ID"
-  default     = "fl80id702e4irnblcd63"
+  default     = "e2l8upt32adb7kjindkt"
 }
 
 variable "security_group_id" {
   type        = string
-  description = "Existing security group ID (optional)"
-  default     = "enpkd9np0qbhc064o9mu"
+  description = "Existing security group ID"
+  default     = "enp92iphnc0bquh1mg9f"
 }
 
 variable "instance_name" {
-  type    = string
-  default = "poly-bot-vm"
+  type        = string
+  description = "VM instance name"
+  default     = "poly-bot-vm"
 }
 
-# Data sources
+# ==========================================
+# Data Sources
+# ==========================================
 data "yandex_vpc_subnet" "main" {
   subnet_id = var.subnet_id
 }
@@ -64,12 +75,13 @@ data "yandex_compute_image" "ubuntu" {
   family = "ubuntu-2204-lts"
 }
 
-
-# Compute Instance
+# ==========================================
+# Resources
+# ==========================================
 resource "yandex_compute_instance" "bot_server" {
   name        = var.instance_name
   platform_id = "standard-v3"
-  zone        = data.yandex_vpc_subnet.main[0].zone
+  zone        = data.yandex_vpc_subnet.main.zone
 
   resources {
     cores         = 2
@@ -92,18 +104,15 @@ resource "yandex_compute_instance" "bot_server" {
   }
 
   metadata = {
-    ssh-keys = "poly:${var.ssh_public_key}"
+    ssh-keys = "ubuntu:${var.ssh_public_key}"
   }
 
   allow_stopping_for_update = true
-
-  # Ждём готовности ВМ перед переходом к Ansible
-  provisioner "local-exec" {
-    command = "echo 'VM ${self.name} created: ${self.network_interface.0.nat_ip_address}'"
-  }
 }
 
-# outputs.tf — встроен в main.tf
+# ==========================================
+# Outputs
+# ==========================================
 output "instance_id" {
   value = yandex_compute_instance.bot_server.id
 }

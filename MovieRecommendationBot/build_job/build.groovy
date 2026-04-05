@@ -130,7 +130,7 @@ pipeline {
                     '''
                 }
                 dir(env.WORKSPACE) {
-                    deleteDir()
+                    cleanWs()
                 }
             }
         }
