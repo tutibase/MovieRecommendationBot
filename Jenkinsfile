@@ -105,6 +105,7 @@ pipeline {
                 echo '☁️ Creating Infrastructure in Yandex Cloud...'
                 dir("${TF_DIR}") {
                     withCredentials([
+                        string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
                         string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
                         string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
                         string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
@@ -239,6 +240,7 @@ EOF
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
                         withCredentials([
+                            string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
                             string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
                             string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
                             string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
