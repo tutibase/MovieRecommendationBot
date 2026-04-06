@@ -30,7 +30,6 @@ pipeline {
                 script {
                     echo '🚀 Starting Build Stage...'
 
-                    # ОЧИСТКА: Удаляем старый контейнер БД, если он завис
                     sh 'docker rm -f build-db || true'
 
                     // 1. Поднимаем временный PostgreSQL
@@ -44,7 +43,6 @@ pipeline {
                         echo "⏳ Waiting for DB to start..."
                         sleep 10
 
-                        # Импортируем схему (используем # для комментариев)
                         cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
                             docker exec -i build-db psql -U postgres -d users_db
                     '''
