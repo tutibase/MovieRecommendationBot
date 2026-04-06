@@ -41,17 +41,15 @@
         enabled: yes
       tags: database
 
-    # ИЗМЕНЕНО: Используем command вместо модуля postgresql_user, чтобы избежать проблем с правами
+    # ИСПРАВЛЕНО: Запускаем от root (без become_user), передаем пользователя БД через -U
     - name: Set password for postgres user
-      command: psql -c "ALTER USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
-      become_user: postgres  # Запускаем команду от имени пользователя postgres
+      command: psql -U {{ db_user }} -c "ALTER USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
       tags: database
 
     - name: Create application database
-      command: psql -c "CREATE DATABASE {{ db_name }} OWNER {{ db_user }} ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;"
-      become_user: postgres
-      args:
-        creates: /var/lib/postgresql/{{ db_name }}_created_flag # Хак для идемпотентности
+      command: >
+        psql -U {{ db_user }} -c 
+        "CREATE DATABASE {{ db_name }} OWNER {{ db_user }} ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;"
       register: db_create_result
       failed_when:
         - db_create_result.rc != 0
@@ -62,13 +60,11 @@
       copy:
         src: ../../src/main/resources/users_db.sql
         dest: /tmp/schema.sql
-        owner: postgres
         mode: '0644'
       tags: database
 
     - name: Import SQL schema into database
-      command: psql -d {{ db_name }} -f /tmp/schema.sql
-      become_user: postgres
+      command: psql -U {{ db_user }} -d {{ db_name }} -f /tmp/schema.sql
       tags: database
 
     - name: Create application directory
