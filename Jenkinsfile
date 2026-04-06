@@ -25,56 +25,60 @@ pipeline {
         // ==========================================
         // ЭТАП 1: СБОРКА (BUILD)
         // ==========================================
-                stage('Build Application') {
-                    steps {
-                        script {
-                            echo '🚀 Starting Build Stage...'
+        stage('Build Application') {
+            steps {
+                script {
+                    echo '🚀 Starting Build Stage...'
 
-                            // 1. Поднимаем временный PostgreSQL
-                            sh '''
-                                docker run -d --name build-db \
-                                    -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-                                    -e POSTGRES_DB=users_db \
-                                    -p 5432:5432 \
-                                    postgres:15
+                    # ОЧИСТКА: Удаляем старый контейнер БД, если он завис
+                    sh 'docker rm -f build-db || true'
 
-                                echo "⏳ Waiting for DB to start..."
-                                sleep 10
+                    // 1. Поднимаем временный PostgreSQL
+                    sh '''
+                        docker run -d --name build-db \
+                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \
+                            -e POSTGRES_DB=users_db \
+                            -p 5432:5432 \
+                            postgres:15
 
-                                cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
-                                    docker exec -i build-db psql -U postgres -d users_db
-                            '''
+                        echo "⏳ Waiting for DB to start..."
+                        sleep 10
 
-                            // 2. Запускаем Maven сборку
-                            dir("${PROJECT_DIR}") {
-                                sh """
-                                    mvn clean package -DskipTests \
-                                        -Ddb.password=${DB_PASSWORD} \
-                                        -Ddb.url=jdbc:postgresql://localhost:5432/users_db \
-                                        -Ddb.user=postgres
-                                """
-                            }
+                        # Импортируем схему (используем # для комментариев)
+                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
+                            docker exec -i build-db psql -U postgres -d users_db
+                    '''
 
-                            // 3. Находим собранный JAR
-                            script {
-                                def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
-                                JAR_FILE = jars.find { !it.name.contains('original') }?.path
-                                if (!JAR_FILE) {
-                                    error "❌ JAR file not found!"
-                                }
-                                echo "✅ Found JAR: ${JAR_FILE}"
-                            }
-
-                            // 4. Чистим временную БД
-                            sh 'docker rm -f build-db'
-                        }
+                    // 2. Запускаем Maven сборку
+                    dir("${PROJECT_DIR}") {
+                        sh """
+                            mvn clean package -DskipTests \
+                                -Ddb.password=${DB_PASSWORD} \
+                                -Ddb.url=jdbc:postgresql://localhost:5432/users_db \
+                                -Ddb.user=postgres
+                        """
                     }
-                    post {
-                        success {
-                            archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
+
+                    // 3. Находим собранный JAR
+                    script {
+                        def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
+                        JAR_FILE = jars.find { !it.name.contains('original') }?.path
+                        if (!JAR_FILE) {
+                            error "❌ JAR file not found!"
                         }
+                        echo "✅ Found JAR: ${JAR_FILE}"
                     }
+
+                    // 4. Чистим временную БД
+                    sh 'docker rm -f build-db'
                 }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
+                }
+            }
+        }
 
         // ==========================================
         // ЭТАП 2: ИНФРАСТРУКТУРА (TERRAFORM)
@@ -192,7 +196,6 @@ pipeline {
         always {
             echo '🧹 Cleaning up infrastructure...'
 
-            // ВАЖНО: Вся логика внутри script {}, чтобы избежать ошибок компиляции
             script {
                 def tfDir = 'infra/terraform'
 
