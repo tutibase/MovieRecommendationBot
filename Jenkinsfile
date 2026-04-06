@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // === Credentials из Jenkins ===
-        YC_TOKEN      = credentials('yc-iam-token') // Больше не используется напрямую в TF, но оставлен для совместимости если где-то еще нужен
+        YC_TOKEN      = credentials('yc-iam-token')
         YC_CLOUD_ID   = credentials('yc-cloud-id')
         YC_FOLDER_ID  = credentials('yc-folder-id')
         SSH_KEY_FILE  = '/var/jenkins_home/.ssh/id_rsa'
@@ -75,7 +75,7 @@ pipeline {
                         """
                     }
 
-                    // 4. ПРОВЕРКА наличия JAR (вместо findFiles используем fileExists)
+                    // 4. ПРОВЕРКА наличия JAR
                     script {
                         if (!fileExists(JAR_FILE)) {
                             error "❌ JAR file not found at ${JAR_FILE}!"
@@ -111,7 +111,7 @@ pipeline {
                         string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                     ]) {
                         script {
-                            // Создаем конфиг зеркала прямо перед запуском
+                            // Создаем конфиг зеркала
                             sh '''
                                 mkdir -p ~/.terraform.d
                                 cat > ~/.terraformrc <<EOF
@@ -128,20 +128,29 @@ EOF
                                 echo "✅ Terraform mirror configured"
                             '''
 
-                            // Получаем IAM токен через OAuth
+                            // Получаем IAM токен через OAuth БЕЗ jq
                             echo '🔄 Exchanging OAuth token for IAM token...'
                             def iamToken = sh(
                                 script: '''
-                                    curl -s -X POST \
+                                    RESPONSE=$(curl -s -X POST \
                                         -H "Content-Type: application/json" \
                                         -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
-                                        "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
+                                        "https://iam.api.cloud.yandex.net/iam/v1/tokens")
+
+                                    # Проверка на ошибки в ответе
+                                    if echo "$RESPONSE" | grep -q "error"; then
+                                        echo "Error getting IAM token: $RESPONSE" >&2
+                                        exit 1
+                                    fi
+
+                                    # Извлекаем токен с помощью grep и sed (вместо jq)
+                                    echo "$RESPONSE" | grep -o '"iamToken":"[^"]*"' | sed 's/"iamToken":"//;s/"//'
                                 ''',
                                 returnStdout: true
                             ).trim()
 
-                            if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error")) {
-                                error "❌ Failed to obtain IAM token. Check your OAuth token validity."
+                            if (iamToken == null || iamToken.isEmpty()) {
+                                error "❌ Failed to obtain IAM token. Check console logs for details."
                             }
 
                             echo "✅ IAM Token received successfully."
@@ -198,7 +207,6 @@ EOF
                 script {
                     echo '📦 Deploying Application...'
 
-                    // Проверка перед деплоем (на всякий случай)
                     if (!fileExists(JAR_FILE)) {
                         error "❌ Cannot deploy: JAR file missing!"
                     }
@@ -263,19 +271,26 @@ EOF
                             string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                         ]) {
                             script {
-                                // Получаем IAM токен для destroy
+                                // Получаем IAM токен для destroy (также без jq)
                                 echo '🔄 Exchanging OAuth token for IAM token (for cleanup)...'
                                 def iamToken = sh(
                                     script: '''
-                                        curl -s -X POST \
+                                        RESPONSE=$(curl -s -X POST \
                                             -H "Content-Type: application/json" \
                                             -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
-                                            "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
+                                            "https://iam.api.cloud.yandex.net/iam/v1/tokens")
+
+                                        if echo "$RESPONSE" | grep -q "error"; then
+                                            echo "Error getting IAM token: $RESPONSE" >&2
+                                            exit 1
+                                        fi
+
+                                        echo "$RESPONSE" | grep -o '"iamToken":"[^"]*"' | sed 's/"iamToken":"//;s/"//'
                                     ''',
                                     returnStdout: true
                                 ).trim()
 
-                                if (iamToken != null && !iamToken.isEmpty() && !iamToken.contains("error")) {
+                                if (iamToken != null && !iamToken.isEmpty()) {
                                     sh '''
                                         if [ -f "terraform.tfstate" ]; then
                                             terraform destroy -auto-approve -input=false \\
