@@ -159,8 +159,8 @@
               </generator>
               <jdbc>
                 <driver>org.postgresql.Driver</driver>
-                <url>jdbc:postgresql://localhost:5432/users_db</url>
-                <user>postgres</user>
+                <url>${db.url}</url>
+                <user>${db.user}</user>
                 <password>${db.password}</password>
               </jdbc>
             </configuration>
