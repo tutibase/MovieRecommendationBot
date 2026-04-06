@@ -3,27 +3,22 @@ pipeline {
 
     environment {
         // === Credentials из Jenkins ===
-        // Важно: yc-oauth-token должен содержать OAuth токен (начинается на y0... или y1...)
-        YC_OAUTH_TOKEN = credentials('yc-oauth-token')
-
-        YC_CLOUD_ID    = credentials('yc-cloud-id')
-        YC_FOLDER_ID   = credentials('yc-folder-id')
-
-        DB_PASSWORD    = credentials('db-password')
-        ENV_FILE_PATH  = credentials('bot-env-file')
-
-        // Путь к приватному SSH ключу на сервере Jenkins
-        SSH_KEY_FILE   = '/var/jenkins_home/.ssh/id_rsa'
+        YC_TOKEN      = credentials('yc-iam-token') // Больше не используется напрямую в TF, но оставлен для совместимости если где-то еще нужен
+        YC_CLOUD_ID   = credentials('yc-cloud-id')
+        YC_FOLDER_ID  = credentials('yc-folder-id')
+        SSH_KEY_FILE  = '/var/jenkins_home/.ssh/id_rsa'
+        DB_PASSWORD   = credentials('db-password')
+        ENV_FILE_PATH = credentials('bot-env-file')
 
         // === Пути в проекте ===
-        TF_DIR         = 'MovieRecommendationBot/infra/terraform'
-        ANSIBLE_DIR    = 'MovieRecommendationBot/infra/ansible'
-        APP_DIR        = '/opt/moviebot'
-        PROJECT_DIR    = 'MovieRecommendationBot'
+        TF_DIR        = 'MovieRecommendationBot/infra/terraform'
+        ANSIBLE_DIR   = 'MovieRecommendationBot/infra/ansible'
+        APP_DIR       = '/opt/moviebot'
+        PROJECT_DIR   = 'MovieRecommendationBot'
 
         // === Переменные для пайплайна ===
-        VM_IP          = ''
-        JAR_FILE       = "${PROJECT_DIR}/target/MovieRecommendationBot-1.0-SNAPSHOT.jar"
+        VM_IP         = ''
+        JAR_FILE      = "${PROJECT_DIR}/target/MovieRecommendationBot-1.0-SNAPSHOT.jar"
     }
 
     stages {
@@ -80,7 +75,7 @@ pipeline {
                         """
                     }
 
-                    // 4. ПРОВЕРКА наличия JAR
+                    // 4. ПРОВЕРКА наличия JAR (вместо findFiles используем fileExists)
                     script {
                         if (!fileExists(JAR_FILE)) {
                             error "❌ JAR file not found at ${JAR_FILE}!"
@@ -109,11 +104,17 @@ pipeline {
             steps {
                 echo '☁️ Creating Infrastructure in Yandex Cloud...'
                 dir("${TF_DIR}") {
-                    script {
-                        // 1. Настраиваем зеркало Terraform
-                        sh '''
-                            mkdir -p ~/.terraform.d
-                            cat > ~/.terraformrc <<EOF
+                    withCredentials([
+                        string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
+                        string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
+                        string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
+                        string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
+                    ]) {
+                        script {
+                            // Создаем конфиг зеркала прямо перед запуском
+                            sh '''
+                                mkdir -p ~/.terraform.d
+                                cat > ~/.terraformrc <<EOF
 provider_installation {
   network_mirror {
     url = "https://terraform-mirror.yandexcloud.net/"
@@ -124,37 +125,34 @@ provider_installation {
   }
 }
 EOF
-                            echo "✅ Terraform mirror configured"
-                        '''
+                                echo "✅ Terraform mirror configured"
+                            '''
 
-                        // 2. Аутентификация через yc CLI и получение свежего IAM токена
-                        // Мы используем withCredentials только для OAuth, чтобы получить IAM динамически
-                        withCredentials([string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH')]) {
+                            // Получаем IAM токен через OAuth
+                            echo '🔄 Exchanging OAuth token for IAM token...'
+                            def iamToken = sh(
+                                script: '''
+                                    curl -s -X POST \
+                                        -H "Content-Type: application/json" \
+                                        -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
+                                        "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
+                                ''',
+                                returnStdout: true
+                            ).trim()
+
+                            if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error")) {
+                                error "❌ Failed to obtain IAM token. Check your OAuth token validity."
+                            }
+
+                            echo "✅ IAM Token received successfully."
+
                             sh """
-                                echo "🔑 Configuring yc CLI profile..."
-                                # Настраиваем профиль по умолчанию
-                                yc config set oauth ${YC_OAUTH}
-                                yc config set cloud-id ${YC_CLOUD_ID}
-                                yc config set folder-id ${YC_FOLDER_ID}
-
-                                echo "🔄 Generating fresh IAM token..."
-                                # Получаем IAM токен и сохраняем в переменную окружения Jenkins
-                                export TF_VAR_yc_token=\$(yc iam create-token)
-
-                                if [ -z "\$TF_VAR_yc_token" ]; then
-                                    echo "❌ Failed to generate IAM token"
-                                    exit 1
-                                fi
-
-                                echo "✅ IAM Token generated successfully."
-
-                                # Инициализация и применение
                                 terraform init -input=false
-
                                 terraform apply -auto-approve -input=false \\
-                                    -var="cloud_id=${YC_CLOUD_ID}" \\
-                                    -var="folder_id=${YC_FOLDER_ID}" \\
-                                    -var="ssh_public_key=\$(cat ~/.ssh/id_rsa.pub)"
+                                    -var="yc_token=${iamToken}" \\
+                                    -var="cloud_id=${TF_VAR_cloud_id}" \\
+                                    -var="folder_id=${TF_VAR_folder_id}" \\
+                                    -var="ssh_public_key=${TF_VAR_ssh_public_key}"
                             """
                         }
                     }
@@ -172,16 +170,10 @@ EOF
 
                     // 1. Получаем IP созданной ВМ
                     VM_IP = sh(script: "cd ${TF_DIR} && terraform output -raw vm_public_ip", returnStdout: true).trim()
-
-                    if (VM_IP.isEmpty()) {
-                        error "❌ Could not retrieve VM IP from Terraform state"
-                    }
-
                     echo "📍 VM IP: ${VM_IP}"
 
                     // 2. Генерируем Inventory для Ansible
                     sh """
-                        mkdir -p ${ANSIBLE_DIR}
                         echo "[all]" > ${ANSIBLE_DIR}/inventory.ini
                         echo "${VM_IP} ansible_user=ubuntu ansible_ssh_private_key_file=${SSH_KEY_FILE}" >> ${ANSIBLE_DIR}/inventory.ini
                     """
@@ -206,6 +198,7 @@ EOF
                 script {
                     echo '📦 Deploying Application...'
 
+                    // Проверка перед деплоем (на всякий случай)
                     if (!fileExists(JAR_FILE)) {
                         error "❌ Cannot deploy: JAR file missing!"
                     }
@@ -238,14 +231,14 @@ EOF
             steps {
                 script {
                     echo '🔍 Checking Service Status...'
-                    sh """
+                    sh '''
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
 
                         echo "📜 Last 20 logs:"
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo journalctl -u moviebot -n 20 --no-pager || true"
-                    """
+                    '''
                 }
             }
         }
@@ -259,31 +252,45 @@ EOF
             echo '🧹 Cleaning up infrastructure...'
 
             script {
-                def tfDir = 'MovieRecommendationBot/infra/terraform'
+                def tfDir = 'infra/terraform'
 
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
-                        // Повторяем логику аутентификации для destroy
-                        withCredentials([string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH')]) {
-                            sh """
-                                # Проверяем наличие стейта перед уничтожением
-                                if [ -f "terraform.tfstate" ]; then
-                                    echo "🔑 Re-authenticating for destroy..."
-                                    yc config set oauth ${YC_OAUTH}
-                                    yc config set cloud-id ${YC_CLOUD_ID}
-                                    yc config set folder-id ${YC_FOLDER_ID}
+                        withCredentials([
+                            string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
+                            string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
+                            string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
+                            string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
+                        ]) {
+                            script {
+                                // Получаем IAM токен для destroy
+                                echo '🔄 Exchanging OAuth token for IAM token (for cleanup)...'
+                                def iamToken = sh(
+                                    script: '''
+                                        curl -s -X POST \
+                                            -H "Content-Type: application/json" \
+                                            -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
+                                            "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
+                                    ''',
+                                    returnStdout: true
+                                ).trim()
 
-                                    export TF_VAR_yc_token=\$(yc iam create-token)
-
-                                    echo "🗑️ Destroying infrastructure..."
-                                    terraform destroy -auto-approve -input=false \\
-                                        -var="cloud_id=${YC_CLOUD_ID}" \\
-                                        -var="folder_id=${YC_FOLDER_ID}" \\
-                                        -var="ssh_public_key=\$(cat ~/.ssh/id_rsa.pub)"
-                                else
-                                    echo "⚠️ No state file found. Skipping destroy."
-                                fi
-                            """
+                                if (iamToken != null && !iamToken.isEmpty() && !iamToken.contains("error")) {
+                                    sh '''
+                                        if [ -f "terraform.tfstate" ]; then
+                                            terraform destroy -auto-approve -input=false \\
+                                                -var="yc_token=${iamToken}" \\
+                                                -var="cloud_id=${TF_VAR_cloud_id}" \\
+                                                -var="folder_id=${TF_VAR_folder_id}" \\
+                                                -var="ssh_public_key=${TF_VAR_ssh_public_key}"
+                                        else
+                                            echo "⚠️ No state file found. Skipping destroy."
+                                        fi
+                                    '''
+                                } else {
+                                    echo "⚠️ Failed to get IAM token for cleanup. Skipping destroy."
+                                }
+                            }
                         }
                     }
                 } else {
@@ -291,7 +298,6 @@ EOF
                 }
             }
 
-            // Очистка рабочего пространства Jenkins
             cleanWs()
         }
         failure {
