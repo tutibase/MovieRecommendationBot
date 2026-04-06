@@ -146,7 +146,7 @@ pipeline {
                         error "❌ JAR_FILE variable is empty. Build stage failed?"
                     }
 
-                    // 1. Копируем JAR (ИСПРАВЛЕНО: вынесено в отдельный sh блок без вложенных кавычек)
+                    // 1. Копируем JAR
                     sh """
                         scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
                             ${JAR_FILE} ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
@@ -158,7 +158,7 @@ pipeline {
                             ${ENV_FILE_PATH} ubuntu@${VM_IP}:${APP_DIR}/.env
                     """
 
-                    // 3. Перезапускаем сервис (ИСПРАВЛЕНО: команда разбита на части или использованы двойные кавычки)
+                    // 3. Перезапускаем сервис
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
                             ubuntu@${VM_IP} "sudo systemctl daemon-reload && sudo systemctl restart moviebot"
@@ -174,7 +174,6 @@ pipeline {
             steps {
                 script {
                     echo '🔍 Checking Service Status...'
-                    // ИСПРАВЛЕНО: используем тройные одинарные кавычки для блока, чтобы избежать конфликтов
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
                             ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
@@ -191,14 +190,14 @@ pipeline {
     // ==========================================
     // ФИНАЛ: ОЧИСТКА (ВСЕГДА)
     // ==========================================
-        post {
-            always {
-                echo '🧹 Cleaning up infrastructure...'
+    post {
+        always {
+            echo '🧹 Cleaning up infrastructure...'
 
-                // Явно определяем пути заново, чтобы избежать ошибки MissingPropertyException
+            // ВАЖНО: Вся логика внутри script {}, чтобы избежать ошибок компиляции
+            script {
                 def tfDir = 'infra/terraform'
 
-                // Проверяем, существует ли директория terraform, прежде чем заходить в неё
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
                         withCredentials([
@@ -208,7 +207,6 @@ pipeline {
                             string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                         ]) {
                             sh '''
-                                # Проверяем, есть ли состояние terraform, прежде чем уничтожать
                                 if [ -f "terraform.tfstate" ]; then
                                     terraform destroy -auto-approve -input=false \
                                         -var="yc_token=${TF_VAR_yc_token}" \
@@ -224,12 +222,13 @@ pipeline {
                 } else {
                     echo "⚠️ Directory ${tfDir} not found. Skipping Terraform cleanup."
                 }
+            }
 
-                cleanWs()
-                echo '✅ Cleanup completed.'
-            }
-            failure {
-                echo '❌ Pipeline failed! Check console output for details.'
-            }
+            cleanWs()
+            echo '✅ Cleanup completed.'
         }
+        failure {
+            echo '❌ Pipeline failed! Check console output for details.'
+        }
+    }
 }
