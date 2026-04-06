@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // === Credentials из Jenkins ===
-        YC_TOKEN      = credentials('yc-iam-token') // Больше не используется напрямую в TF, но оставлен для совместимости если где-то еще нужен
+        YC_TOKEN      = credentials('yc-iam-token')
         YC_CLOUD_ID   = credentials('yc-cloud-id')
         YC_FOLDER_ID  = credentials('yc-folder-id')
         SSH_KEY_FILE  = '/var/jenkins_home/.ssh/id_rsa'
@@ -75,7 +75,7 @@ pipeline {
                         """
                     }
 
-                    // 4. ПРОВЕРКА наличия JAR (вместо findFiles используем fileExists)
+                    // 4. ПРОВЕРКА наличия JAR
                     script {
                         if (!fileExists(JAR_FILE)) {
                             error "❌ JAR file not found at ${JAR_FILE}!"
@@ -131,9 +131,6 @@ EOF
                             // Получаем IAM токен через OAuth
                             echo '🔄 Exchanging OAuth token for IAM token...'
 
-                            // Важно: используем двойные кавычки для sh, чтобы Groovy подставил переменную,
-                            // но экранируем $ для bash там, где нужно, или используем env.
-                            // Лучший способ: передать токен через ENV переменную явно в curl
                             def iamToken = sh(
                                 script: """
                                     curl -s -X POST \\
@@ -143,15 +140,6 @@ EOF
                                 """,
                                 returnStdout: true
                             ).trim()
-
-                            // Альтернативный, более безопасный способ формирования JSON (если выше не сработает из-за кавычек):
-                            /*
-                            def jsonBody = "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}"
-                            def iamToken = sh(
-                                script: "curl -s -X POST -H 'Content-Type: application/json' -d '${jsonBody}' 'https://iam.api.cloud.yandex.net/iam/v1/tokens' | jq -r '.iamToken'",
-                                returnStdout: true
-                            ).trim()
-                            */
 
                             if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error") || iamToken.contains("parse error")) {
                                 error "❌ Failed to obtain IAM token. Response: ${iamToken}"
@@ -185,13 +173,28 @@ EOF
                     VM_IP = sh(script: "cd ${TF_DIR} && terraform output -raw vm_public_ip", returnStdout: true).trim()
                     echo "📍 VM IP: ${VM_IP}"
 
-                    // 2. Генерируем Inventory для Ansible
+                    // 2. Ждем доступности SSH (ВАЖНО!)
+                    echo '⏳ Waiting for SSH to become available...'
+                    sh """
+                        for i in \$(seq 1 30); do
+                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i ${SSH_KEY_FILE} ubuntu@${VM_IP} "echo 'SSH is ready'" 2>/dev/null; then
+                                echo "✅ SSH is accessible!"
+                                exit 0
+                            fi
+                            echo "⏳ Attempt \$i/30: SSH not ready yet. Waiting 10s..."
+                            sleep 10
+                        done
+                        echo "❌ SSH did not become available in time."
+                        exit 1
+                    """
+
+                    // 3. Генерируем Inventory для Ansible
                     sh """
                         echo "[all]" > ${ANSIBLE_DIR}/inventory.ini
                         echo "${VM_IP} ansible_user=ubuntu ansible_ssh_private_key_file=${SSH_KEY_FILE}" >> ${ANSIBLE_DIR}/inventory.ini
                     """
 
-                    // 3. Запускаем Playbook
+                    // 4. Запускаем Playbook
                     dir("${ANSIBLE_DIR}") {
                         sh """
                             ansible-playbook -i inventory.ini playbook.yml \\
@@ -211,7 +214,6 @@ EOF
                 script {
                     echo '📦 Deploying Application...'
 
-                    // Проверка перед деплоем (на всякий случай)
                     if (!fileExists(JAR_FILE)) {
                         error "❌ Cannot deploy: JAR file missing!"
                     }
@@ -244,14 +246,14 @@ EOF
             steps {
                 script {
                     echo '🔍 Checking Service Status...'
-                    sh '''
+                    sh """
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
 
                         echo "📜 Last 20 logs:"
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo journalctl -u moviebot -n 20 --no-pager || true"
-                    '''
+                    """
                 }
             }
         }
