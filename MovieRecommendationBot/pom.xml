@@ -139,6 +139,15 @@
         <artifactId>jooq-codegen-maven</artifactId>
         <version>3.18.4</version>
 
+
+        <dependencies>
+          <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.2</version> <!-- Используй ту же версию, что и в основном проекте -->
+          </dependency>
+        </dependencies>
+
         <executions>
           <execution>
             <phase>generate-sources</phase>
@@ -167,13 +176,6 @@
           </execution>
         </executions>
 
-        <dependencies>
-          <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.7.2</version> <!-- Используй ту же версию, что и в основном проекте -->
-          </dependency>
-        </dependencies>
       </plugin>
 
 
