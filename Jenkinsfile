@@ -33,7 +33,7 @@ pipeline {
                         docker run -d --name build-db \\
                             -e POSTGRES_PASSWORD=${DB_PASSWORD} \\
                             -e POSTGRES_DB=users_db \\
-                            -p 5432:5432 \\
+                            -p 54321:5432 \\
                             postgres:15
 
                         echo "⏳ Waiting for DB to be ready..."
@@ -70,7 +70,7 @@ pipeline {
                             # Добавлен флаг -e для полного вывода ошибки
                             mvn clean package -DskipTests -e \\
                                 -Ddb.password=${DB_PASSWORD} \\
-                                -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \\
+                                -Ddb.url=jdbc:postgresql://host.docker.internal:54321/users_db \\
                                 -Ddb.user=postgres
                         """
                     }
