@@ -61,8 +61,6 @@ pipeline {
                         # ДИАГНОСТИКА: Пытаемся подключиться через TCP так же, как это сделает Maven
                         echo "🔍 Testing TCP connection from Jenkins container..."
                         sh '''
-                            # Используем nc (netcat) или просто пробуем psql через TCP явно
-                            # Если nc нет, используем bash tcp redirect
                             if command -v nc &> /dev/null; then
                                 nc -zv host.docker.internal 5432
                             else
@@ -70,7 +68,6 @@ pipeline {
                                 timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/5432' && echo "TCP Port 5432 is OPEN" || echo "TCP Port 5432 is CLOSED"
                             fi
 
-                            # Также проверим резолвинг имени
                             getent hosts host.docker.internal || echo "Cannot resolve host.docker.internal"
                         '''
                     '''
