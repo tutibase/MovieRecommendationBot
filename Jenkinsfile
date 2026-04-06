@@ -25,58 +25,56 @@ pipeline {
         // ==========================================
         // ЭТАП 1: СБОРКА (BUILD)
         // ==========================================
-        stage('Build Application') {
-            steps {
-                script {
-                    echo '🚀 Starting Build Stage...'
+                stage('Build Application') {
+                    steps {
+                        script {
+                            echo '🚀 Starting Build Stage...'
 
-                    // 1. Поднимаем временный PostgreSQL для генерации JOOQ
-                    sh '''
-                        docker run -d --name build-db \
-                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-                            -e POSTGRES_DB=users_db \
-                            -p 5432:5432 \
-                            postgres:15
+                            // 1. Поднимаем временный PostgreSQL
+                            sh '''
+                                docker run -d --name build-db \
+                                    -e POSTGRES_PASSWORD=${DB_PASSWORD} \
+                                    -e POSTGRES_DB=users_db \
+                                    -p 5432:5432 \
+                                    postgres:15
 
-                        echo "⏳ Waiting for DB to start..."
-                        sleep 10
+                                echo "⏳ Waiting for DB to start..."
+                                sleep 10
 
-                        // Импортируем схему во временную БД
-                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
-                            docker exec -i build-db psql -U postgres -d users_db
-                    '''
+                                cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
+                                    docker exec -i build-db psql -U postgres -d users_db
+                            '''
 
-                    // 2. Запускаем Maven сборку
-                    dir("${PROJECT_DIR}") {
-                        sh """
-                            mvn clean package -DskipTests \
-                                -Ddb.password=${DB_PASSWORD} \
-                                -Ddb.url=jdbc:postgresql://localhost:5432/users_db \
-                                -Ddb.user=postgres
-                        """
-                    }
+                            // 2. Запускаем Maven сборку
+                            dir("${PROJECT_DIR}") {
+                                sh """
+                                    mvn clean package -DskipTests \
+                                        -Ddb.password=${DB_PASSWORD} \
+                                        -Ddb.url=jdbc:postgresql://localhost:5432/users_db \
+                                        -Ddb.user=postgres
+                                """
+                            }
 
-                    // 3. Находим собранный JAR
-                    script {
-                        def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
-                        // Ищем именно fat-jar (без слова original)
-                        JAR_FILE = jars.find { !it.name.contains('original') }?.path
-                        if (!JAR_FILE) {
-                            error "❌ JAR file not found!"
+                            // 3. Находим собранный JAR
+                            script {
+                                def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
+                                JAR_FILE = jars.find { !it.name.contains('original') }?.path
+                                if (!JAR_FILE) {
+                                    error "❌ JAR file not found!"
+                                }
+                                echo "✅ Found JAR: ${JAR_FILE}"
+                            }
+
+                            // 4. Чистим временную БД
+                            sh 'docker rm -f build-db'
                         }
-                        echo "✅ Found JAR: ${JAR_FILE}"
                     }
-
-                    // 4. Чистим временную БД
-                    sh 'docker rm -f build-db'
+                    post {
+                        success {
+                            archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
+                        }
+                    }
                 }
-            }
-            post {
-                success {
-                    archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
-                }
-            }
-        }
 
         // ==========================================
         // ЭТАП 2: ИНФРАСТРУКТУРА (TERRAFORM)
