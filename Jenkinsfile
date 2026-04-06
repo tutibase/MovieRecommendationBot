@@ -50,6 +50,7 @@ pipeline {
                     // 2. Запускаем Maven сборку
                     dir("${PROJECT_DIR}") {
                         sh """
+                            echo "Starting Maven Build with DB URL: host.docker.internal..."
                             mvn clean package -DskipTests \
                                 -Ddb.password=${DB_PASSWORD} \
                                 -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \
