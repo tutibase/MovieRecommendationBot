@@ -111,7 +111,7 @@ pipeline {
                         string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                     ]) {
                         script {
-                            // Создаем конфиг зеркала прямо перед запуском
+                            // Создаем конфиг зеркала
                             sh '''
                                 mkdir -p ~/.terraform.d
                                 cat > ~/.terraformrc <<EOF
@@ -130,18 +130,31 @@ EOF
 
                             // Получаем IAM токен через OAuth
                             echo '🔄 Exchanging OAuth token for IAM token...'
+
+                            // Важно: используем двойные кавычки для sh, чтобы Groovy подставил переменную,
+                            // но экранируем $ для bash там, где нужно, или используем env.
+                            // Лучший способ: передать токен через ENV переменную явно в curl
                             def iamToken = sh(
-                                script: '''
-                                    curl -s -X POST \
-                                        -H "Content-Type: application/json" \
-                                        -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
+                                script: """
+                                    curl -s -X POST \\
+                                        -H "Content-Type: application/json" \\
+                                        -d '{"yandexPassportOauthToken": "'\${YC_OAUTH_TOKEN}'"}' \\
                                         "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
-                                ''',
+                                """,
                                 returnStdout: true
                             ).trim()
 
-                            if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error")) {
-                                error "❌ Failed to obtain IAM token. Check your OAuth token validity."
+                            // Альтернативный, более безопасный способ формирования JSON (если выше не сработает из-за кавычек):
+                            /*
+                            def jsonBody = "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}"
+                            def iamToken = sh(
+                                script: "curl -s -X POST -H 'Content-Type: application/json' -d '${jsonBody}' 'https://iam.api.cloud.yandex.net/iam/v1/tokens' | jq -r '.iamToken'",
+                                returnStdout: true
+                            ).trim()
+                            */
+
+                            if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error") || iamToken.contains("parse error")) {
+                                error "❌ Failed to obtain IAM token. Response: ${iamToken}"
                             }
 
                             echo "✅ IAM Token received successfully."
@@ -263,20 +276,20 @@ EOF
                             string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                         ]) {
                             script {
-                                // Получаем IAM токен для destroy
                                 echo '🔄 Exchanging OAuth token for IAM token (for cleanup)...'
+
                                 def iamToken = sh(
-                                    script: '''
-                                        curl -s -X POST \
-                                            -H "Content-Type: application/json" \
-                                            -d "{\"yandexPassportOauthToken\": \"${YC_OAUTH_TOKEN}\"}" \
+                                    script: """
+                                        curl -s -X POST \\
+                                            -H "Content-Type: application/json" \\
+                                            -d '{"yandexPassportOauthToken": "'\${YC_OAUTH_TOKEN}'"}' \\
                                             "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
-                                    ''',
+                                    """,
                                     returnStdout: true
                                 ).trim()
 
-                                if (iamToken != null && !iamToken.isEmpty() && !iamToken.contains("error")) {
-                                    sh '''
+                                if (iamToken != null && !iamToken.isEmpty() && !iamToken.contains("error") && !iamToken.contains("parse error")) {
+                                    sh """
                                         if [ -f "terraform.tfstate" ]; then
                                             terraform destroy -auto-approve -input=false \\
                                                 -var="yc_token=${iamToken}" \\
@@ -286,7 +299,7 @@ EOF
                                         else
                                             echo "⚠️ No state file found. Skipping destroy."
                                         fi
-                                    '''
+                                    """
                                 } else {
                                     echo "⚠️ Failed to get IAM token for cleanup. Skipping destroy."
                                 }
