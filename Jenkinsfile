@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // === Credentials из Jenkins ===
         YC_TOKEN      = credentials('yc-iam-token')
         YC_CLOUD_ID   = credentials('yc-cloud-id')
         YC_FOLDER_ID  = credentials('yc-folder-id')
@@ -10,82 +9,73 @@ pipeline {
         DB_PASSWORD   = credentials('db-password')
         ENV_FILE_PATH = credentials('bot-env-file')
 
-        // === Пути в проекте ===
         TF_DIR        = 'infra/terraform'
         ANSIBLE_DIR   = 'infra/ansible'
         APP_DIR       = '/opt/moviebot'
         PROJECT_DIR   = 'MovieRecommendationBot'
 
-        // === Переменные для пайплайна ===
         VM_IP         = ''
         JAR_FILE      = ''
     }
 
     stages {
-        // ==========================================
-        // ЭТАП 1: СБОРКА (BUILD)
-        // ==========================================
         stage('Build Application') {
             steps {
                 script {
                     echo '🚀 Starting Build Stage...'
 
-                    // 0. Жесткая очистка
+                    // 0. Очистка
                     sh 'docker rm -f build-db || true'
-                    // Небольшая пауза, чтобы Docker точно освободил ресурсы
                     sh 'sleep 2'
 
-                    // 1. Поднимаем БД
-                    sh '''
-                        docker run -d --name build-db \
-                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \
-                            -e POSTGRES_DB=users_db \
-                            -p 5432:5432 \
+                    // 1. Подъем БД и импорт схемы (ОДИН блок sh)
+                    sh """
+                        docker run -d --name build-db \\
+                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \\
+                            -e POSTGRES_DB=users_db \\
+                            -p 5432:5432 \\
                             postgres:15
 
                         echo "⏳ Waiting for DB to be ready..."
-                        # Ждем дольше, пока не появится файл готовности или просто по таймеру
                         sleep 20
 
-                        # ПРОВЕРКА: Убедимся, что база users_db существует
                         echo "Checking databases..."
                         docker exec build-db psql -U postgres -c "\\l" | grep users_db
 
-                        # Импорт схемы
                         echo "Importing schema..."
-                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
+                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \\
                             docker exec -i build-db psql -U postgres -d users_db
 
                         echo "✅ Schema imported."
+                    """
 
-                        # ДИАГНОСТИКА: Пытаемся подключиться через TCP так же, как это сделает Maven
-                        echo "🔍 Testing TCP connection from Jenkins container..."
-                        sh '''
-                            if command -v nc &> /dev/null; then
-                                nc -zv host.docker.internal 5432
-                            else
-                                # Попытка подключения через /dev/tcp (bash builtin)
-                                timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/5432' && echo "TCP Port 5432 is OPEN" || echo "TCP Port 5432 is CLOSED"
-                            fi
+                    // 2. ДИАГНОСТИКА (ОТДЕЛЬНЫЙ шаг sh)
+                    echo '🔍 Testing TCP connection...'
+                    sh '''
+                        # Проверка резолвинга
+                        getent hosts host.docker.internal || echo "❌ Cannot resolve host.docker.internal"
 
-                            getent hosts host.docker.internal || echo "Cannot resolve host.docker.internal"
-                        '''
+                        # Проверка порта через bash (nc может не быть)
+                        if timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/5432' 2>/dev/null; then
+                            echo "✅ TCP Port 5432 is OPEN"
+                        else
+                            echo "❌ TCP Port 5432 is CLOSED or Unreachable"
+                        fi
                     '''
 
-
-
-                    // 2. Maven
+                    // 3. Maven Сборка
                     dir("${PROJECT_DIR}") {
                         sh """
                             echo "🔨 Starting Maven Build..."
-                            mvn clean package -DskipTests \
-                                -Ddb.password=${DB_PASSWORD} \
-                                -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \
+                            # Добавлен флаг -e для полного вывода ошибки
+                            mvn clean package -DskipTests -e \\
+                                -Ddb.password=${DB_PASSWORD} \\
+                                -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \\
                                 -Ddb.user=postgres
                         """
                     }
 
-                    // 3. Находим собранный JAR
+                    // 4. Поиск JAR
                     script {
                         def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
                         JAR_FILE = jars.find { !it.name.contains('original') }?.path
@@ -95,7 +85,7 @@ pipeline {
                         echo "✅ Found JAR: ${JAR_FILE}"
                     }
 
-                    // 4. Чистим временную БД
+                    // 5. Очистка БД
                     sh 'docker rm -f build-db'
                 }
             }
@@ -103,15 +93,15 @@ pipeline {
                 success {
                     archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
                 }
+                always {
+                    sh 'docker rm -f build-db || true'
+                }
             }
         }
 
-        // ==========================================
-        // ЭТАП 2: ИНФРАСТРУКТУРА (TERRAFORM)
-        // ==========================================
         stage('Create Infrastructure') {
             steps {
-                echo '☁️ Creating Infrastructure in Yandex Cloud...'
+                echo '☁️ Creating Infrastructure...'
                 dir("${TF_DIR}") {
                     withCredentials([
                         string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
@@ -121,10 +111,10 @@ pipeline {
                     ]) {
                         sh '''
                             terraform init -input=false
-                            terraform apply -auto-approve -input=false \
-                                -var="yc_token=${TF_VAR_yc_token}" \
-                                -var="cloud_id=${TF_VAR_cloud_id}" \
-                                -var="folder_id=${TF_VAR_folder_id}" \
+                            terraform apply -auto-approve -input=false \\
+                                -var="yc_token=${TF_VAR_yc_token}" \\
+                                -var="cloud_id=${TF_VAR_cloud_id}" \\
+                                -var="folder_id=${TF_VAR_folder_id}" \\
                                 -var="ssh_public_key=${TF_VAR_ssh_public_key}"
                         '''
                     }
@@ -132,29 +122,22 @@ pipeline {
             }
         }
 
-        // ==========================================
-        // ЭТАП 3: НАСТРОЙКА ОКРУЖЕНИЯ (ANSIBLE)
-        // ==========================================
         stage('Provision Server') {
             steps {
                 script {
-                    echo '⚙️ Provisioning Server with Ansible...'
-
-                    // 1. Получаем IP созданной ВМ
+                    echo '⚙️ Provisioning Server...'
                     VM_IP = sh(script: "cd ${TF_DIR} && terraform output -raw vm_public_ip", returnStdout: true).trim()
                     echo "📍 VM IP: ${VM_IP}"
 
-                    // 2. Генерируем Inventory для Ansible
                     sh """
                         echo "[all]" > ${ANSIBLE_DIR}/inventory.ini
                         echo "${VM_IP} ansible_user=ubuntu ansible_ssh_private_key_file=${SSH_KEY_FILE}" >> ${ANSIBLE_DIR}/inventory.ini
                     """
 
-                    // 3. Запускаем Playbook
                     dir("${ANSIBLE_DIR}") {
                         sh """
-                            ansible-playbook -i inventory.ini playbook.yml \
-                                --private-key ${SSH_KEY_FILE} \
+                            ansible-playbook -i inventory.ini playbook.yml \\
+                                --private-key ${SSH_KEY_FILE} \\
                                 --extra-vars "db_password=${DB_PASSWORD} ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
                         """
                     }
@@ -162,52 +145,34 @@ pipeline {
             }
         }
 
-        // ==========================================
-        // ЭТАП 4: ДЕПЛОЙ АРТЕФАКТА
-        // ==========================================
         stage('Deploy Artifact') {
             steps {
                 script {
-                    echo '📦 Deploying Application...'
+                    echo '📦 Deploying...'
+                    if (!JAR_FILE) { error "❌ JAR_FILE is empty!" }
 
-                    if (!JAR_FILE) {
-                        error "❌ JAR_FILE variable is empty. Build stage failed?"
-                    }
-
-                    // 1. Копируем JAR
                     sh """
-                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
+                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ${JAR_FILE} ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
-                    """
 
-                    // 2. Копируем .env файл
-                    sh """
-                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
+                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ${ENV_FILE_PATH} ubuntu@${VM_IP}:${APP_DIR}/.env
-                    """
 
-                    // 3. Перезапускаем сервис
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl daemon-reload && sudo systemctl restart moviebot"
                     """
                 }
             }
         }
 
-        // ==========================================
-        // ЭТАП 5: ПРОВЕРКА СТАТУСА
-        // ==========================================
         stage('Check Status') {
             steps {
                 script {
-                    echo '🔍 Checking Service Status...'
+                    echo '🔍 Checking Status...'
                     sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
-
-                        echo "📜 Last 20 logs:"
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo journalctl -u moviebot -n 20 --no-pager || true"
                     '''
                 }
@@ -215,16 +180,11 @@ pipeline {
         }
     }
 
-    // ==========================================
-    // ФИНАЛ: ОЧИСТКА (ВСЕГДА)
-    // ==========================================
     post {
         always {
-            echo '🧹 Cleaning up infrastructure...'
-
+            echo '🧹 Cleaning up...'
             script {
                 def tfDir = 'infra/terraform'
-
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
                         withCredentials([
@@ -235,27 +195,20 @@ pipeline {
                         ]) {
                             sh '''
                                 if [ -f "terraform.tfstate" ]; then
-                                    terraform destroy -auto-approve -input=false \
-                                        -var="yc_token=${TF_VAR_yc_token}" \
-                                        -var="cloud_id=${TF_VAR_cloud_id}" \
-                                        -var="folder_id=${TF_VAR_folder_id}" \
+                                    terraform destroy -auto-approve -input=false \\
+                                        -var="yc_token=${TF_VAR_yc_token}" \\
+                                        -var="cloud_id=${TF_VAR_cloud_id}" \\
+                                        -var="folder_id=${TF_VAR_folder_id}" \\
                                         -var="ssh_public_key=${TF_VAR_ssh_public_key}"
                                 else
-                                    echo "⚠️ terraform.tfstate not found. Skipping destroy."
+                                    echo "⚠️ No state file found."
                                 fi
                             '''
                         }
                     }
-                } else {
-                    echo "⚠️ Directory ${tfDir} not found. Skipping Terraform cleanup."
                 }
             }
-
             cleanWs()
-            echo '✅ Cleanup completed.'
-        }
-        failure {
-            echo '❌ Pipeline failed! Check console output for details.'
         }
     }
 }
