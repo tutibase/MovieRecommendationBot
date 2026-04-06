@@ -41,21 +41,25 @@
         enabled: yes
       tags: database
 
-    # ИСПРАВЛЕНО: Запускаем от root (без become_user), передаем пользователя БД через -U
+    # 1. Установка пароля. Запускаем команду СУЩНОСТИЮ от имени пользователя postgres через su
     - name: Set password for postgres user
-      command: psql -U {{ db_user }} -c "ALTER USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
+      shell: |
+        su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '{{ db_password }}';\""
       tags: database
+      # Мы не используем become_user, чтобы Ansible не создавал временные файлы.
+      # Весь скрипт выполняется от root, который может делать su.
 
+    # 2. Создание базы данных
     - name: Create application database
-      command: >
-        psql -U {{ db_user }} -c 
-        "CREATE DATABASE {{ db_name }} OWNER {{ db_user }} ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;"
+      shell: |
+        su - postgres -c "psql -c \"CREATE DATABASE {{ db_name }} OWNER postgres ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;\""
       register: db_create_result
       failed_when:
         - db_create_result.rc != 0
         - "'already exists' not in db_create_result.stderr"
       tags: database
 
+    # 3. Копирование SQL схемы
     - name: Copy SQL schema to server
       copy:
         src: ../../src/main/resources/users_db.sql
@@ -63,10 +67,13 @@
         mode: '0644'
       tags: database
 
+    # 4. Импорт схемы
     - name: Import SQL schema into database
-      command: psql -U {{ db_user }} -d {{ db_name }} -f /tmp/schema.sql
+      shell: |
+        su - postgres -c "psql -d {{ db_name }} -f /tmp/schema.sql"
       tags: database
 
+    # --- КОНЕЦ БЛОКА БД ---
     - name: Create application directory
       file:
         path: "{{ app_dir }}"
