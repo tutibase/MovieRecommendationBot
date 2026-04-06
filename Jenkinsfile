@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        // === Credentials из Jenkins ===
         YC_TOKEN      = credentials('yc-iam-token')
         YC_CLOUD_ID   = credentials('yc-cloud-id')
         YC_FOLDER_ID  = credentials('yc-folder-id')
@@ -9,26 +10,30 @@ pipeline {
         DB_PASSWORD   = credentials('db-password')
         ENV_FILE_PATH = credentials('bot-env-file')
 
+        // === Пути в проекте ===
         TF_DIR        = 'infra/terraform'
         ANSIBLE_DIR   = 'infra/ansible'
         APP_DIR       = '/opt/moviebot'
         PROJECT_DIR   = 'MovieRecommendationBot'
 
+        // === Переменные для пайплайна ===
         VM_IP         = ''
-        JAR_FILE      = ''
+        JAR_FILE      = "${PROJECT_DIR}/target/MovieRecommendationBot-1.0-SNAPSHOT.jar"
     }
 
     stages {
+        // ==========================================
+        // ЭТАП 1: СБОРКА (BUILD)
+        // ==========================================
         stage('Build Application') {
             steps {
                 script {
                     echo '🚀 Starting Build Stage...'
 
-                    // 0. Очистка
+                    // 0. Очистка старого контейнера БД (на всякий случай)
                     sh 'docker rm -f build-db || true'
-                    sh 'sleep 2'
 
-                    // 1. Подъем БД и импорт схемы (ОДИН блок sh)
+                    // 1. Подъем БД и импорт схемы
                     sh """
                         docker run -d --name build-db \\
                             -e POSTGRES_PASSWORD=${DB_PASSWORD} \\
@@ -49,17 +54,13 @@ pipeline {
                         echo "✅ Schema imported."
                     """
 
-                    // 2. ДИАГНОСТИКА (ОТДЕЛЬНЫЙ шаг sh)
+                    // 2. ДИАГНОСТИКА (проверка порта)
                     echo '🔍 Testing TCP connection...'
                     sh '''
-                        # Проверка резолвинга
-                        getent hosts host.docker.internal || echo "❌ Cannot resolve host.docker.internal"
-
-                        # Проверка порта через bash (nc может не быть)
-                        if timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/5432' 2>/dev/null; then
-                            echo "✅ TCP Port 5432 is OPEN"
+                        if timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/54321' 2>/dev/null; then
+                            echo "✅ TCP Port 54321 is OPEN"
                         else
-                            echo "❌ TCP Port 5432 is CLOSED or Unreachable"
+                            echo "❌ TCP Port 54321 is CLOSED or Unreachable"
                         fi
                     '''
 
@@ -67,20 +68,17 @@ pipeline {
                     dir("${PROJECT_DIR}") {
                         sh """
                             echo "🔨 Starting Maven Build..."
-                            # Добавлен флаг -e для полного вывода ошибки
-                            mvn clean package -DskipTests -e \\
+                            mvn clean package -DskipTests \\
                                 -Ddb.password=${DB_PASSWORD} \\
                                 -Ddb.url=jdbc:postgresql://host.docker.internal:54321/users_db \\
                                 -Ddb.user=postgres
                         """
                     }
 
-                    // 4. Поиск JAR
+                    // 4. ПРОВЕРКА наличия JAR (вместо findFiles используем fileExists)
                     script {
-                        def jars = findFiles(glob: "${PROJECT_DIR}/target/MovieRecommendationBot-*.jar")
-                        JAR_FILE = jars.find { !it.name.contains('original') }?.path
-                        if (!JAR_FILE) {
-                            error "❌ JAR file not found!"
+                        if (!fileExists(JAR_FILE)) {
+                            error "❌ JAR file not found at ${JAR_FILE}!"
                         }
                         echo "✅ Found JAR: ${JAR_FILE}"
                     }
@@ -99,9 +97,12 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // ЭТАП 2: ИНФРАСТРУКТУРА (TERRAFORM)
+        // ==========================================
         stage('Create Infrastructure') {
             steps {
-                echo '☁️ Creating Infrastructure...'
+                echo '☁️ Creating Infrastructure in Yandex Cloud...'
                 dir("${TF_DIR}") {
                     withCredentials([
                         string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
@@ -122,18 +123,25 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // ЭТАП 3: НАСТРОЙКА ОКРУЖЕНИЯ (ANSIBLE)
+        // ==========================================
         stage('Provision Server') {
             steps {
                 script {
-                    echo '⚙️ Provisioning Server...'
+                    echo '⚙️ Provisioning Server with Ansible...'
+
+                    // 1. Получаем IP созданной ВМ
                     VM_IP = sh(script: "cd ${TF_DIR} && terraform output -raw vm_public_ip", returnStdout: true).trim()
                     echo "📍 VM IP: ${VM_IP}"
 
+                    // 2. Генерируем Inventory для Ansible
                     sh """
                         echo "[all]" > ${ANSIBLE_DIR}/inventory.ini
                         echo "${VM_IP} ansible_user=ubuntu ansible_ssh_private_key_file=${SSH_KEY_FILE}" >> ${ANSIBLE_DIR}/inventory.ini
                     """
 
+                    // 3. Запускаем Playbook
                     dir("${ANSIBLE_DIR}") {
                         sh """
                             ansible-playbook -i inventory.ini playbook.yml \\
@@ -145,19 +153,33 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // ЭТАП 4: ДЕПЛОЙ АРТЕФАКТА
+        // ==========================================
         stage('Deploy Artifact') {
             steps {
                 script {
-                    echo '📦 Deploying...'
-                    if (!JAR_FILE) { error "❌ JAR_FILE is empty!" }
+                    echo '📦 Deploying Application...'
 
+                    // Проверка перед деплоем (на всякий случай)
+                    if (!fileExists(JAR_FILE)) {
+                        error "❌ Cannot deploy: JAR file missing!"
+                    }
+
+                    // 1. Копируем JAR
                     sh """
                         scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ${JAR_FILE} ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
+                    """
 
+                    // 2. Копируем .env файл
+                    sh """
                         scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ${ENV_FILE_PATH} ubuntu@${VM_IP}:${APP_DIR}/.env
+                    """
 
+                    // 3. Перезапускаем сервис
+                    sh """
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl daemon-reload && sudo systemctl restart moviebot"
                     """
@@ -165,13 +187,18 @@ pipeline {
             }
         }
 
+        // ==========================================
+        // ЭТАП 5: ПРОВЕРКА СТАТУСА
+        // ==========================================
         stage('Check Status') {
             steps {
                 script {
-                    echo '🔍 Checking Status...'
+                    echo '🔍 Checking Service Status...'
                     sh '''
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
+
+                        echo "📜 Last 20 logs:"
                         ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
                             ubuntu@${VM_IP} "sudo journalctl -u moviebot -n 20 --no-pager || true"
                     '''
@@ -180,11 +207,16 @@ pipeline {
         }
     }
 
+    // ==========================================
+    // ФИНАЛ: ОЧИСТКА (ВСЕГДА)
+    // ==========================================
     post {
         always {
-            echo '🧹 Cleaning up...'
+            echo '🧹 Cleaning up infrastructure...'
+
             script {
                 def tfDir = 'infra/terraform'
+
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
                         withCredentials([
@@ -201,14 +233,20 @@ pipeline {
                                         -var="folder_id=${TF_VAR_folder_id}" \\
                                         -var="ssh_public_key=${TF_VAR_ssh_public_key}"
                                 else
-                                    echo "⚠️ No state file found."
+                                    echo "⚠️ No state file found. Skipping destroy."
                                 fi
                             '''
                         }
                     }
+                } else {
+                    echo "⚠️ Directory ${tfDir} not found. Skipping Terraform cleanup."
                 }
             }
+
             cleanWs()
+        }
+        failure {
+            echo '❌ Pipeline failed! Check console output for details.'
         }
     }
 }
