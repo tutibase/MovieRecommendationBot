@@ -30,9 +30,12 @@ pipeline {
                 script {
                     echo '🚀 Starting Build Stage...'
 
+                    // 0. Жесткая очистка
                     sh 'docker rm -f build-db || true'
+                    // Небольшая пауза, чтобы Docker точно освободил ресурсы
+                    sh 'sleep 2'
 
-                    // 1. Поднимаем временный PostgreSQL
+                    // 1. Поднимаем БД
                     sh '''
                         docker run -d --name build-db \
                             -e POSTGRES_PASSWORD=${DB_PASSWORD} \
@@ -40,17 +43,26 @@ pipeline {
                             -p 5432:5432 \
                             postgres:15
 
-                        echo "⏳ Waiting for DB to start..."
-                        sleep 10
+                        echo "⏳ Waiting for DB to be ready..."
+                        # Ждем дольше, пока не появится файл готовности или просто по таймеру
+                        sleep 20
 
+                        # ПРОВЕРКА: Убедимся, что база users_db существует
+                        echo "Checking databases..."
+                        docker exec build-db psql -U postgres -c "\\l" | grep users_db
+
+                        # Импорт схемы
+                        echo "Importing schema..."
                         cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \
                             docker exec -i build-db psql -U postgres -d users_db
+
+                        echo "✅ Schema imported."
                     '''
 
-                    // 2. Запускаем Maven сборку
+                    // 2. Maven
                     dir("${PROJECT_DIR}") {
                         sh """
-                            echo "Starting Maven Build with DB URL: host.docker.internal..."
+                            echo "🔨 Starting Maven Build..."
                             mvn clean package -DskipTests \
                                 -Ddb.password=${DB_PASSWORD} \
                                 -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \
