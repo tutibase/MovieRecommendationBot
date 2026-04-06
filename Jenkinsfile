@@ -52,7 +52,7 @@ pipeline {
                         sh """
                             mvn clean package -DskipTests \
                                 -Ddb.password=${DB_PASSWORD} \
-                                -Ddb.url=jdbc:postgresql://localhost:5432/users_db \
+                                -Ddb.url=jdbc:postgresql://host.docker.internal:5432/users_db \
                                 -Ddb.user=postgres
                         """
                     }
