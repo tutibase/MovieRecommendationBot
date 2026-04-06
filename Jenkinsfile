@@ -110,6 +110,25 @@ pipeline {
                         string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
                         string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
                     ]) {
+                        script {
+                            // Создаем конфиг зеркала прямо перед запуском
+                            sh '''
+                                mkdir -p ~/.terraform.d
+                                cat > ~/.terraformrc <<EOF
+provider_installation {
+  network_mirror {
+    url = "https://terraform-mirror.yandexcloud.net/"
+    include = ["registry.terraform.io/*/*"]
+  }
+  direct {
+    exclude = ["registry.terraform.io/*/*"]
+  }
+}
+EOF
+                                echo "✅ Terraform mirror configured"
+                            '''
+                        }
+
                         sh '''
                             terraform init -input=false
                             terraform apply -auto-approve -input=false \\
