@@ -267,7 +267,7 @@ EOF
             echo '🧹 Cleaning up infrastructure...'
 
             script {
-                def tfDir = 'infra/terraform'
+                def tfDir = 'MovieRecommendationBot/infra/terraform'
 
                 if (fileExists(tfDir)) {
                     dir("${tfDir}") {
