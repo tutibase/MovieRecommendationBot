@@ -11,8 +11,8 @@ pipeline {
         ENV_FILE_PATH = credentials('bot-env-file')
 
         // === Пути в проекте ===
-        TF_DIR        = 'infra/terraform'
-        ANSIBLE_DIR   = 'infra/ansible'
+        TF_DIR        = 'MovieRecommendationBot/infra/terraform'
+        ANSIBLE_DIR   = 'MovieRecommendationBot/infra/ansible'
         APP_DIR       = '/opt/moviebot'
         PROJECT_DIR   = 'MovieRecommendationBot'
 
