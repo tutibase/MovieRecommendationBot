@@ -7,7 +7,6 @@
   vars:
     db_name: "users_db"
     db_user: "postgres"
-    # Пароль будем передавать через --extra-vars из Jenkins или командной строки
     app_dir: "/opt/moviebot"
     app_user: "ubuntu"
 
@@ -29,7 +28,7 @@
         name:
           - openjdk-21-jdk
           - postgresql
-          - python3-psycopg2  # Нужно для модулей ansible postgres
+          - python3-psycopg2
           - curl
           - wget
         state: present
@@ -42,39 +41,34 @@
         enabled: yes
       tags: database
 
+    # ИЗМЕНЕНО: Используем command вместо модуля postgresql_user, чтобы избежать проблем с правами
     - name: Set password for postgres user
-      become_user: postgres
-      postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_password }}"
-        role_attr_flags: SUPERUSER
+      command: psql -c "ALTER USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
+      become_user: postgres  # Запускаем команду от имени пользователя postgres
       tags: database
 
     - name: Create application database
+      command: psql -c "CREATE DATABASE {{ db_name }} OWNER {{ db_user }} ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;"
       become_user: postgres
-      postgresql_db:
-        name: "{{ db_name }}"
-        owner: "{{ db_user }}"
-        encoding: UTF-8
-        lc_collate: C
-        lc_ctype: C
-        template: template0
+      args:
+        creates: /var/lib/postgresql/{{ db_name }}_created_flag # Хак для идемпотентности
+      register: db_create_result
+      failed_when:
+        - db_create_result.rc != 0
+        - "'already exists' not in db_create_result.stderr"
       tags: database
 
     - name: Copy SQL schema to server
       copy:
-        src: ../../src/main/resources/users_db.sql  # Путь к твоему SQL файлу в проекте
+        src: ../../src/main/resources/users_db.sql
         dest: /tmp/schema.sql
         owner: postgres
         mode: '0644'
       tags: database
 
     - name: Import SQL schema into database
-      become_user: postgres
       command: psql -d {{ db_name }} -f /tmp/schema.sql
-      args:
-        creates: /tmp/schema_imported_flag # Хак для идемпотентности, если скрипт сам не защищает от повторов
-      # Примечание: Твой SQL скрипт использует IF NOT EXISTS, поэтому можно запускать многократно
+      become_user: postgres
       tags: database
 
     - name: Create application directory
