@@ -191,32 +191,45 @@ pipeline {
     // ==========================================
     // ФИНАЛ: ОЧИСТКА (ВСЕГДА)
     // ==========================================
-    post {
-        always {
-            echo '🧹 Cleaning up infrastructure...'
+        post {
+            always {
+                echo '🧹 Cleaning up infrastructure...'
 
-            dir("${TF_DIR}") {
-                withCredentials([
-                    string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
-                    string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
-                    string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
-                    string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
-                ]) {
-                    sh '''
-                        terraform destroy -auto-approve -input=false \
-                            -var="yc_token=${TF_VAR_yc_token}" \
-                            -var="cloud_id=${TF_VAR_cloud_id}" \
-                            -var="folder_id=${TF_VAR_folder_id}" \
-                            -var="ssh_public_key=${TF_VAR_ssh_public_key}"
-                    '''
+                // Явно определяем пути заново, чтобы избежать ошибки MissingPropertyException
+                def tfDir = 'infra/terraform'
+
+                // Проверяем, существует ли директория terraform, прежде чем заходить в неё
+                if (fileExists(tfDir)) {
+                    dir("${tfDir}") {
+                        withCredentials([
+                            string(credentialsId: 'yc-iam-token', variable: 'TF_VAR_yc_token'),
+                            string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
+                            string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
+                            string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
+                        ]) {
+                            sh '''
+                                # Проверяем, есть ли состояние terraform, прежде чем уничтожать
+                                if [ -f "terraform.tfstate" ]; then
+                                    terraform destroy -auto-approve -input=false \
+                                        -var="yc_token=${TF_VAR_yc_token}" \
+                                        -var="cloud_id=${TF_VAR_cloud_id}" \
+                                        -var="folder_id=${TF_VAR_folder_id}" \
+                                        -var="ssh_public_key=${TF_VAR_ssh_public_key}"
+                                else
+                                    echo "⚠️ terraform.tfstate not found. Skipping destroy."
+                                fi
+                            '''
+                        }
+                    }
+                } else {
+                    echo "⚠️ Directory ${tfDir} not found. Skipping Terraform cleanup."
                 }
-            }
 
-            cleanWs()
-            echo '✅ Cleanup completed.'
+                cleanWs()
+                echo '✅ Cleanup completed.'
+            }
+            failure {
+                echo '❌ Pipeline failed! Check console output for details.'
+            }
         }
-        failure {
-            echo '❌ Pipeline failed! Check console output. Attempting cleanup...'
-        }
-    }
 }
