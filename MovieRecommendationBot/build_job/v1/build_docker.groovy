@@ -36,20 +36,40 @@ pipeline {
         }
 
         stage('Tag & Push') {
+            steps {
+                script {
+                    echo "Pushing to Docker Hub..."
 
-            post {
-                always {
-                    sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
-                    cleanWs()
-                }
-                failure {
-                    echo "\033[31m Pipeline failed! Check console output.\033[0m"
-                }
-                success {
-                    echo "\033[32m Success! Image pushed:\033[0m"
-                    echo "\033[36m https://hub.docker.com/r/${DOCKER_IMAGE}/tags\033[0m"
+                    withCredentials([usernamePassword(
+                            credentialsId: 'dockerhub-credentials',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                        sh "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
+
+                        echo "Tagging as latest..."
+                        sh "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
+                        sh "docker push ${DOCKER_IMAGE}:latest"
+
+                        sh "docker logout"
+                    }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest 2>/dev/null || true"
+            cleanWs()
+        }
+        failure {
+            echo "\033[31m Pipeline failed! Check console output.\033[0m"
+        }
+        success {
+            echo "\033[32m Success! Image pushed:\033[0m"
+            echo "\033[36m https://hub.docker.com/r/${DOCKER_IMAGE}/tags\033[0m"
         }
     }
 }
