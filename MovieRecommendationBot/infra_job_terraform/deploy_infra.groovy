@@ -223,7 +223,6 @@ EOF
                         artifacts: '''
                 MovieRecommendationBot/infra_job_terraform/terraform/*.tf,
                 MovieRecommendationBot/infra_job_terraform/ansible/**/*.yml,
-                MovieRecommendationBot/infra_job_terraform/ansible/hosts.ini,
                 MovieRecommendationBot/outputs/**/*
             ''',
                         allowEmptyArchive: true
