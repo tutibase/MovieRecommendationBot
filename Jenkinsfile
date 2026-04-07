@@ -218,16 +218,17 @@ EOF
                         error "❌ Cannot deploy: JAR file missing!"
                     }
 
-                    // 1. Копируем JAR
+                    // 1. Копируем JAR (добавлены кавычки вокруг путей)
                     sh """
                         scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ${JAR_FILE} ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
+                            "${JAR_FILE}" ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
                     """
 
-                    // 2. Копируем .env файл
+                    // 2. Копируем .env файл (добавлены кавычки вокруг путей)
+                    // ВАЖНО: ENV_FILE_PATH - это путь к файлу, созданному плагином credentials.
                     sh """
                         scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ${ENV_FILE_PATH} ubuntu@${VM_IP}:${APP_DIR}/.env
+                            "${ENV_FILE_PATH}" ubuntu@${VM_IP}:${APP_DIR}/.env
                     """
 
                     // 3. Перезапускаем сервис
