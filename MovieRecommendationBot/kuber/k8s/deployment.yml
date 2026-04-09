@@ -79,7 +79,10 @@ spec:
                   key: API_KEY
             # Формируем DB_URL внутри контейнера
             - name: DB_URL
-              value: "jdbc:postgresql://$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_URL
           resources:
             requests:
               memory: "256Mi"
