@@ -71,8 +71,8 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
-                DB_URL="jdbc:postgresql://\$DB_HOST:\$DB_PORT/\$DB_NAME"
-                
+                DB_URL=\$(grep "^DB_URL=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
+                echo \$(grep "^DB_URL=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 # 🗄️ Копируем манифесты на ВМ (с проверкой)
                 echo "📦 Copying manifests to VM..."
                 
@@ -119,7 +119,7 @@ pipeline {
                         
                         echo '📄 Creating ConfigMap...'
                         kubectl create configmap app-config \\
-                            --from-literal=DB_URL='\${DB_URL}' \\
+                            --from-literal=DB_URL='\$DB_URL' \\
                             --from-literal=DB_NAME='\$DB_NAME' \\
                             --from-literal=DB_USERNAME='\$DB_USERNAME' \\
                             --from-literal=DB_HOST='\$DB_HOST' \\
