@@ -58,37 +58,11 @@ pipeline {
                     sh """
                 echo "🔗 Connecting to VM ${env.VM_IP}..."
                 
-                # 🔧 Функция для выполнения команд kubectl через SSH
-                run_k8s() {
-                    ssh -i \${SSH_KEY_FILE} \\
-                        -o StrictHostKeyChecking=no \\
-                        -o ConnectTimeout=10 \\
-                        ${SSH_USER}@${env.VM_IP} "\$*"
-                }
-                
-                NAMESPACE="${K8S_NAMESPACE}"
-                
-                echo "🔗 Testing connection..."
-                run_k8s "kubectl cluster-info"
-                
-                # Создаём namespace
-                run_k8s "kubectl create namespace \${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
-                
-                # 🔐 Парсим .env на стороне Jenkins и создаём Secret
+                # Парсим переменные из .env на стороне Jenkins
                 DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 API_KEY=\$(grep "^API_KEY=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                
-                run_k8s "kubectl create secret generic app-secrets \\
-                    --from-literal=POSTGRES_DB_PASSWORD='\$DB_PASSWORD' \\
-                    --from-literal=BOT_TOKEN='\$BOT_TOKEN' \\
-                    --from-literal=ADMIN_PASSWORD='\$ADMIN_PASSWORD' \\
-                    --from-literal=API_KEY='\$API_KEY' \\
-                    -n \${NAMESPACE} \\
-                    --dry-run=client -o yaml | kubectl apply -f -"
-                
-                # 📄 Создаём ConfigMap
                 DB_NAME=\$(grep "^DB_NAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 DB_USERNAME=\$(grep "^DB_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 DB_HOST=\$(grep "^DB_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
@@ -97,47 +71,60 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
-                run_k8s "kubectl create configmap app-config \\
-                    --from-literal=DB_NAME='\$DB_NAME' \\
-                    --from-literal=DB_USERNAME='\$DB_USERNAME' \\
-                    --from-literal=DB_HOST='\$DB_HOST' \\
-                    --from-literal=DB_PORT='\$DB_PORT' \\
-                    --from-literal=HTTP_PORT='\$HTTP_PORT' \\
-                    --from-literal=HTTP_HOST='\$HTTP_HOST' \\
-                    --from-literal=BOT_USERNAME='\$BOT_USERNAME' \\
-                    -n \${NAMESPACE} \\
-                    --dry-run=client -o yaml | kubectl apply -f -"
+                NAMESPACE="${K8S_NAMESPACE}"
                 
-                # 🗄️ Копируем манифесты на ВМ
-                echo "📦 Copying manifests to VM..."
-                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
-                    ${PG_DIR} \\\\
-                    ${SSH_USER}@${env.VM_IP}:/tmp/postgres.yml
-                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
-                    ${DEPLOY_DIR} \\\\
-                    ${SSH_USER}@${env.VM_IP}:/tmp/deployment.yml
-                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
-                    ${SERVICE_DIR} \\\\
-                    ${SSH_USER}@${env.VM_IP}:/tmp/service.yml
-                
-                # 🗄️ Применяем PostgreSQL
-                echo "🗄️ Deploying PostgreSQL..."
-                run_k8s "kubectl apply -f /tmp/postgres.yml -n \${NAMESPACE}"
-                
-                # Ждём готовности БД
-                echo "⏳ Waiting for PostgreSQL to be ready..."
-                run_k8s "kubectl rollout status deployment/postgres -n \${NAMESPACE} --timeout=120s"
-                
-                # 🚀 Применяем приложение
-                echo "🚀 Deploying application..."
-                run_k8s "kubectl apply -f /tmp/deployment.yml -n \${NAMESPACE}"
-                run_k8s "kubectl apply -f /tmp/service.yml -n \${NAMESPACE}"
-                
-                # Ждём готовности приложения
-                run_k8s "kubectl rollout status deployment/movie-recommendation-bot -n \${NAMESPACE} --timeout=300s"
-                
-                # 🧹 Очистка
-                run_k8s "rm -f /tmp/postgres.yml /tmp/deployment.yml /tmp/service.yml"
+                # 🔧 ОДНО SSH-подключение для всех команд kubectl
+                ssh -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=30 \\
+                    -o ServerAliveInterval=30 \\
+                    -o ServerAliveCountMax=3 \\
+                    ${SSH_USER}@${env.VM_IP} "
+                        set -e  # Выход при первой ошибке
+                        
+                        echo '🔗 Testing connection...'
+                        kubectl cluster-info
+                        
+                        echo '📦 Creating namespace...'
+                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        echo '🔐 Creating Secret...'
+                        kubectl create secret generic app-secrets \\
+                            --from-literal=POSTGRES_DB_PASSWORD='${DB_PASSWORD}' \\
+                            --from-literal=BOT_TOKEN='${BOT_TOKEN}' \\
+                            --from-literal=ADMIN_PASSWORD='${ADMIN_PASSWORD}' \\
+                            --from-literal=API_KEY='${API_KEY}' \\
+                            -n ${NAMESPACE} \\
+                            --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        echo '📄 Creating ConfigMap...'
+                        kubectl create configmap app-config \\
+                            --from-literal=DB_NAME='${DB_NAME}' \\
+                            --from-literal=DB_USERNAME='${DB_USERNAME}' \\
+                            --from-literal=DB_HOST='${DB_HOST}' \\
+                            --from-literal=DB_PORT='${DB_PORT}' \\
+                            --from-literal=HTTP_PORT='${HTTP_PORT}' \\
+                            --from-literal=HTTP_HOST='${HTTP_HOST}' \\
+                            --from-literal=BOT_USERNAME='${BOT_USERNAME}' \\
+                            -n ${NAMESPACE} \\
+                            --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        echo '🗄️ Deploying PostgreSQL...'
+                        kubectl apply -f /tmp/postgres.yml -n ${NAMESPACE}
+                        
+                        echo '⏳ Waiting for PostgreSQL...'
+                        kubectl rollout status deployment/postgres -n ${NAMESPACE} --timeout=120s
+                        
+                        echo '🚀 Deploying application...'
+                        kubectl apply -f /tmp/deployment.yml -n ${NAMESPACE}
+                        kubectl apply -f /tmp/service.yml -n ${NAMESPACE}
+                        
+                        echo '⏳ Waiting for application...'
+                        kubectl rollout status deployment/movie-recommendation-bot -n ${NAMESPACE} --timeout=300s
+                        
+                        echo '🧹 Cleaning up...'
+                        rm -f /tmp/postgres.yml /tmp/deployment.yml /tmp/service.yml
+                    "
             """
                 }
             }
