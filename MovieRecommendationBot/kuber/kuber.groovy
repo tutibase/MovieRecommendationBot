@@ -58,25 +58,27 @@ pipeline {
                     sh """
                 echo "🔗 Connecting to VM ${env.VM_IP}..."
                 
-                # 🔐 Парсим переменные из .env
-                DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                API_KEY=\$(grep "^API_KEY=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                DB_NAME=\$(grep "^DB_NAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                DB_USERNAME=\$(grep "^DB_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                DB_HOST=\$(grep "^DB_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                DB_PORT=\$(grep "^DB_PORT=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                HTTP_PORT=\$(grep "^HTTP_PORT=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
-                BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
+                # 🔐 Парсим переменные из .env (с tr -d '\r' для Windows line endings)
+                DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                API_KEY=\$(grep "^API_KEY=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                DB_NAME=\$(grep "^DB_NAME=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                DB_USERNAME=\$(grep "^DB_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                DB_HOST=\$(grep "^DB_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                DB_PORT=\$(grep "^DB_PORT=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                HTTP_PORT=\$(grep "^HTTP_PORT=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
+                BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 
-                DB_URL="jdbc:postgresql://\$DB_HOST:\$DB_PORT/\$DB_NAME"
-              
+                # ✅ Формируем DB_URL с правильным экранированием: \${VAR}
+                DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+                
+                # 🔍 Отладочный вывод (опционально)
+                echo "🔍 Debug: DB_URL will be: jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+                
                 # 🗄️ Копируем манифесты на ВМ (с проверкой)
                 echo "📦 Copying manifests to VM..."
-                
-                # Проверка исходных файлов
                 for f in ${PG_DIR} ${DEPLOY_DIR} ${SERVICE_DIR}; do
                     if [ ! -f "\$f" ]; then
                         echo "❌ Source file not found: \$f"
@@ -84,7 +86,6 @@ pipeline {
                     fi
                 done
                 
-                # Копирование
                 scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
                     ${PG_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/postgres.yml || { echo "❌ scp failed"; exit 1; }
                 scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
@@ -110,23 +111,23 @@ pipeline {
                         
                         echo '🔐 Creating Secret...'
                         kubectl create secret generic app-secrets \\
-                            --from-literal=DB_PASSWORD='\$DB_PASSWORD' \\
-                            --from-literal=BOT_TOKEN='\$BOT_TOKEN' \\
-                            --from-literal=ADMIN_PASSWORD='\$ADMIN_PASSWORD' \\
-                            --from-literal=API_KEY='\$API_KEY' \\
+                            --from-literal=DB_PASSWORD='\${DB_PASSWORD}' \\
+                            --from-literal=BOT_TOKEN='\${BOT_TOKEN}' \\
+                            --from-literal=ADMIN_PASSWORD='\${ADMIN_PASSWORD}' \\
+                            --from-literal=API_KEY='\${API_KEY}' \\
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
                         echo '📄 Creating ConfigMap...'
                         kubectl create configmap app-config \\
                             --from-literal=DB_URL="\${DB_URL}" \\
-                            --from-literal=DB_NAME='\$DB_NAME' \\
-                            --from-literal=DB_USERNAME='\$DB_USERNAME' \\
-                            --from-literal=DB_HOST='\$DB_HOST' \\
-                            --from-literal=DB_PORT='\$DB_PORT' \\
-                            --from-literal=HTTP_PORT='\$HTTP_PORT' \\
-                            --from-literal=HTTP_HOST='\$HTTP_HOST' \\
-                            --from-literal=BOT_USERNAME='\$BOT_USERNAME' \\
+                            --from-literal=DB_NAME='\${DB_NAME}' \\
+                            --from-literal=DB_USERNAME='\${DB_USERNAME}' \\
+                            --from-literal=DB_HOST='\${DB_HOST}' \\
+                            --from-literal=DB_PORT='\${DB_PORT}' \\
+                            --from-literal=HTTP_PORT='\${HTTP_PORT}' \\
+                            --from-literal=HTTP_HOST='\${HTTP_HOST}' \\
+                            --from-literal=BOT_USERNAME='\${BOT_USERNAME}' \\
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
