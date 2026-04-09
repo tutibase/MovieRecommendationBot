@@ -11,3 +11,6 @@ Jenkinsfile.docker
 target/*
 !target/*.jar
 *.iml
+*.log
+build/
+!build/libs/*.jar

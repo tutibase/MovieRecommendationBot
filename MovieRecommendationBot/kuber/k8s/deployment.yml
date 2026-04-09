@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-recommendation-bot
+  labels:
+    app: movie-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movie-bot
+  template:
+    metadata:
+      labels:
+        app: movie-bot
+    spec:
+      containers:
+        - name: app
+          image: polyalugovenko/movie-recommendation-bot-new-infra:latest
+          ports:
+            - containerPort: 8110
+          env:
+            # Из ConfigMap (нечувствительные)
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_USERNAME
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: HTTP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: HTTP_PORT
+            - name: HTTP_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: HTTP_HOST
+            - name: BOT_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: BOT_USERNAME
+            # Из Secret (чувствительные)
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
+            - name: BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: BOT_TOKEN
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ADMIN_PASSWORD
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: API_KEY
+            # Формируем DB_URL внутри контейнера
+            - name: DB_URL
+              value: "jdbc:postgresql://$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8110
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8110
+            initialDelaySeconds: 15
+            periodSeconds: 5
