@@ -58,7 +58,7 @@ pipeline {
                     sh """
                 echo "🔗 Connecting to VM ${env.VM_IP}..."
                 
-                # Парсим переменные из .env на стороне Jenkins
+                # 🔐 Парсим переменные из .env (shell-переменные)
                 DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
@@ -71,9 +71,7 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
-                # 🔧 Используем K8S_NAMESPACE напрямую (не создаём NAMESPACE как shell-переменную)
-                
-                # 🔧 ОДНО SSH-подключение для всех команд kubectl
+                # 🔧 ОДНО SSH-подключение для всех команд
                 ssh -i \${SSH_KEY_FILE} \\
                     -o StrictHostKeyChecking=no \\
                     -o ConnectTimeout=30 \\
@@ -89,22 +87,22 @@ pipeline {
                         
                         echo '🔐 Creating Secret...'
                         kubectl create secret generic app-secrets \\
-                            --from-literal=POSTGRES_DB_PASSWORD='${DB_PASSWORD}' \\
-                            --from-literal=BOT_TOKEN='${BOT_TOKEN}' \\
-                            --from-literal=ADMIN_PASSWORD='${ADMIN_PASSWORD}' \\
-                            --from-literal=API_KEY='${API_KEY}' \\
+                            --from-literal=POSTGRES_DB_PASSWORD='\$DB_PASSWORD' \\
+                            --from-literal=BOT_TOKEN='\$BOT_TOKEN' \\
+                            --from-literal=ADMIN_PASSWORD='\$ADMIN_PASSWORD' \\
+                            --from-literal=API_KEY='\$API_KEY' \\
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
                         echo '📄 Creating ConfigMap...'
                         kubectl create configmap app-config \\
-                            --from-literal=DB_NAME='${DB_NAME}' \\
-                            --from-literal=DB_USERNAME='${DB_USERNAME}' \\
-                            --from-literal=DB_HOST='${DB_HOST}' \\
-                            --from-literal=DB_PORT='${DB_PORT}' \\
-                            --from-literal=HTTP_PORT='${HTTP_PORT}' \\
-                            --from-literal=HTTP_HOST='${HTTP_HOST}' \\
-                            --from-literal=BOT_USERNAME='${BOT_USERNAME}' \\
+                            --from-literal=DB_NAME='\$DB_NAME' \\
+                            --from-literal=DB_USERNAME='\$DB_USERNAME' \\
+                            --from-literal=DB_HOST='\$DB_HOST' \\
+                            --from-literal=DB_PORT='\$DB_PORT' \\
+                            --from-literal=HTTP_PORT='\$HTTP_PORT' \\
+                            --from-literal=HTTP_HOST='\$HTTP_HOST' \\
+                            --from-literal=BOT_USERNAME='\$BOT_USERNAME' \\
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
