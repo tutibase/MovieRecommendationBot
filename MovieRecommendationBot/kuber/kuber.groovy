@@ -45,7 +45,7 @@ pipeline {
             steps {
                 withCredentials([
                         sshUserPrivateKey(
-                                credentialsId: 'ssh-private-key',  // ← ваш SSH-ключ из предыдущих лаб
+                                credentialsId: 'ssh-private-key',
                                 keyFileVariable: 'SSH_KEY_FILE',
                                 usernameVariable: 'SSH_USER_VAR',
                                 passphraseVariable: ''
@@ -71,17 +71,17 @@ pipeline {
                 # Создаём namespace
                 run_k8s "kubectl create namespace \${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
                 
-                # 🔐 Создаём Secret из .env (парсим на стороне Jenkins, передаём значения)
+                # 🔐 Парсим .env на стороне Jenkins и создаём Secret
                 DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 API_KEY=\$(grep "^API_KEY=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
                 run_k8s "kubectl create secret generic app-secrets \\
-                    --from-literal=POSTGRES_DB_PASSWORD='${DB_PASSWORD}' \\
-                    --from-literal=BOT_TOKEN='${BOT_TOKEN}' \\
-                    --from-literal=ADMIN_PASSWORD='${ADMIN_PASSWORD}' \\
-                    --from-literal=API_KEY='${API_KEY}' \\
+                    --from-literal=POSTGRES_DB_PASSWORD='\$DB_PASSWORD' \\
+                    --from-literal=BOT_TOKEN='\$BOT_TOKEN' \\
+                    --from-literal=ADMIN_PASSWORD='\$ADMIN_PASSWORD' \\
+                    --from-literal=API_KEY='\$API_KEY' \\
                     -n \${NAMESPACE} \\
                     --dry-run=client -o yaml | kubectl apply -f -"
                 
@@ -95,17 +95,17 @@ pipeline {
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
                 run_k8s "kubectl create configmap app-config \\
-                    --from-literal=DB_NAME='${DB_NAME}' \\
-                    --from-literal=DB_USERNAME='${DB_USERNAME}' \\
-                    --from-literal=DB_HOST='${DB_HOST}' \\
-                    --from-literal=DB_PORT='${DB_PORT}' \\
-                    --from-literal=HTTP_PORT='${HTTP_PORT}' \\
-                    --from-literal=HTTP_HOST='${HTTP_HOST}' \\
-                    --from-literal=BOT_USERNAME='${BOT_USERNAME}' \\
+                    --from-literal=DB_NAME='\$DB_NAME' \\
+                    --from-literal=DB_USERNAME='\$DB_USERNAME' \\
+                    --from-literal=DB_HOST='\$DB_HOST' \\
+                    --from-literal=DB_PORT='\$DB_PORT' \\
+                    --from-literal=HTTP_PORT='\$HTTP_PORT' \\
+                    --from-literal=HTTP_HOST='\$HTTP_HOST' \\
+                    --from-literal=BOT_USERNAME='\$BOT_USERNAME' \\
                     -n \${NAMESPACE} \\
                     --dry-run=client -o yaml | kubectl apply -f -"
                 
-                # 🗄️ Копируем манифесты на ВМ и применяем их
+                # 🗄️ Копируем манифесты на ВМ
                 echo "📦 Copying manifests to VM..."
                 scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
                     k8s/postgres.yml \\
@@ -133,7 +133,7 @@ pipeline {
                 # Ждём готовности приложения
                 run_k8s "kubectl rollout status deployment/movie-recommendation-bot -n \${NAMESPACE} --timeout=300s"
                 
-                # 🧹 Очистка временных файлов на ВМ
+                # 🧹 Очистка
                 run_k8s "rm -f /tmp/postgres.yml /tmp/deployment.yml /tmp/service.yml"
             """
                 }
