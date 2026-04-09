@@ -44,7 +44,7 @@ pipeline {
             steps {
                 withCredentials([
                         string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT'),
-                        file(credentialsId: 'app-env-file', variable: 'ENV_FILE_PATH')
+                        file(credentialsId: 'app-env-content', variable: 'ENV_FILE_PATH')
                 ]) {
                     sh """
                 # ... kubeconfig setup ...
