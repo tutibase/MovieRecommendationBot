@@ -71,7 +71,7 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
-                NAMESPACE="${K8S_NAMESPACE}"
+                # 🔧 Используем K8S_NAMESPACE напрямую (не создаём NAMESPACE как shell-переменную)
                 
                 # 🔧 ОДНО SSH-подключение для всех команд kubectl
                 ssh -i \${SSH_KEY_FILE} \\
@@ -80,13 +80,12 @@ pipeline {
                     -o ServerAliveInterval=30 \\
                     -o ServerAliveCountMax=3 \\
                     ${SSH_USER}@${env.VM_IP} "
-                        set -e  # Выход при первой ошибке
-                        
+                        set -e
                         echo '🔗 Testing connection...'
                         kubectl cluster-info
                         
                         echo '📦 Creating namespace...'
-                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                         
                         echo '🔐 Creating Secret...'
                         kubectl create secret generic app-secrets \\
@@ -94,7 +93,7 @@ pipeline {
                             --from-literal=BOT_TOKEN='${BOT_TOKEN}' \\
                             --from-literal=ADMIN_PASSWORD='${ADMIN_PASSWORD}' \\
                             --from-literal=API_KEY='${API_KEY}' \\
-                            -n ${NAMESPACE} \\
+                            -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
                         echo '📄 Creating ConfigMap...'
@@ -106,21 +105,21 @@ pipeline {
                             --from-literal=HTTP_PORT='${HTTP_PORT}' \\
                             --from-literal=HTTP_HOST='${HTTP_HOST}' \\
                             --from-literal=BOT_USERNAME='${BOT_USERNAME}' \\
-                            -n ${NAMESPACE} \\
+                            -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
                         echo '🗄️ Deploying PostgreSQL...'
-                        kubectl apply -f /tmp/postgres.yml -n ${NAMESPACE}
+                        kubectl apply -f /tmp/postgres.yml -n ${K8S_NAMESPACE}
                         
                         echo '⏳ Waiting for PostgreSQL...'
-                        kubectl rollout status deployment/postgres -n ${NAMESPACE} --timeout=120s
+                        kubectl rollout status deployment/postgres -n ${K8S_NAMESPACE} --timeout=120s
                         
                         echo '🚀 Deploying application...'
-                        kubectl apply -f /tmp/deployment.yml -n ${NAMESPACE}
-                        kubectl apply -f /tmp/service.yml -n ${NAMESPACE}
+                        kubectl apply -f /tmp/deployment.yml -n ${K8S_NAMESPACE}
+                        kubectl apply -f /tmp/service.yml -n ${K8S_NAMESPACE}
                         
                         echo '⏳ Waiting for application...'
-                        kubectl rollout status deployment/movie-recommendation-bot -n ${NAMESPACE} --timeout=300s
+                        kubectl rollout status deployment/movie-recommendation-bot -n ${K8S_NAMESPACE} --timeout=300s
                         
                         echo '🧹 Cleaning up...'
                         rm -f /tmp/postgres.yml /tmp/deployment.yml /tmp/service.yml
