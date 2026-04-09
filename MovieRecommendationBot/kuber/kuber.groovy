@@ -108,7 +108,7 @@ pipeline {
                         
                         echo '🔐 Creating Secret...'
                         kubectl create secret generic app-secrets \\
-                            --from-literal=POSTGRES_DB_PASSWORD='\$DB_PASSWORD' \\
+                            --from-literal=DB_PASSWORD='\$DB_PASSWORD' \\
                             --from-literal=BOT_TOKEN='\$BOT_TOKEN' \\
                             --from-literal=ADMIN_PASSWORD='\$ADMIN_PASSWORD' \\
                             --from-literal=API_KEY='\$API_KEY' \\
