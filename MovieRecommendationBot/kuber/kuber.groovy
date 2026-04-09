@@ -111,24 +111,26 @@ pipeline {
                 timeout(time: 5, unit: 'MINUTES') {
                     withCredentials([string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT')]) {
                         sh """
-                            echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
-                            export KUBECONFIG=/tmp/kubeconfig_\$\$
-                            chmod 600 /tmp/kubeconfig_\$\$
-                            
-                            echo "🔍 Checking pod status..."
-                            kubectl get pods -l app=movie-bot -n ${K8S_NAMESPACE}
-                            
-                            echo "🔍 Checking service..."
-                            kubectl get svc movie-bot-service -n ${K8S_NAMESPACE}
-                            
-                            # Показать NodePort для доступа
-                            NODE_PORT=\$(kubectl get svc movie-bot-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "N/A")
-                            if [ "\$NODE_PORT" != "N/A" ]; then
-                                echo "✅ App available at: http://${env.VM_IP}:\${NODE_PORT}"
-                            fi
-                            
-                            rm -f /tmp/kubeconfig_\$\$
-                        """
+                    # 🔧 PATH и KUBECONFIG — в начале!
+                    export PATH=/var/jenkins_home:\${PATH}
+                    echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
+                    export KUBECONFIG=/tmp/kubeconfig_\$\$
+                    chmod 600 /tmp/kubeconfig_\$\$
+                    
+                    echo "🔍 Checking pod status..."
+                    kubectl get pods -l app=movie-bot -n ${K8S_NAMESPACE}
+                    
+                    echo "🔍 Checking service..."
+                    kubectl get svc movie-bot-service -n ${K8S_NAMESPACE}
+                    
+                    # Показать NodePort для доступа
+                    NODE_PORT=\$(kubectl get svc movie-bot-service -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "N/A")
+                    if [ "\$NODE_PORT" != "N/A" ]; then
+                        echo "✅ App available at: http://${env.VM_IP}:\${NODE_PORT}"
+                    fi
+                    
+                    rm -f /tmp/kubeconfig_\$\$
+                """
                     }
                 }
             }
