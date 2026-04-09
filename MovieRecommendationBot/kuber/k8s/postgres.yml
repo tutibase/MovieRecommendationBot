@@ -46,7 +46,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
-                  key: POSTGRES_DB_PASSWORD
+                  key: DB_PASSWORD
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
