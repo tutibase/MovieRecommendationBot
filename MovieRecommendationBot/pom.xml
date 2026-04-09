@@ -136,9 +136,13 @@
             </goals>
             <configuration>
               <transformers>
+                <!-- ✅ Существующий трансформер для main-class -->
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>ru.spbstu.movierecbot.App</mainClass>
                 </transformer>
+
+                <!-- ✅ НОВЫЙ: объединяет META-INF/services/* файлы (включая JDBC драйверы) -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
             </configuration>
           </execution>
