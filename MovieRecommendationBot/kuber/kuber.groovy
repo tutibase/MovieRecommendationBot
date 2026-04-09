@@ -119,7 +119,7 @@ pipeline {
                         
                         echo '📄 Creating ConfigMap...'
                         kubectl create configmap app-config \\
-                            --from-literal=DB_URL='\${DB_URL}' \\\\
+                            --from-literal=DB_URL="\\${DB_URL}" \\\\
                             --from-literal=DB_NAME='\$DB_NAME' \\
                             --from-literal=DB_USERNAME='\$DB_USERNAME' \\
                             --from-literal=DB_HOST='\$DB_HOST' \\
