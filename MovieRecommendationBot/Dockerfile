@@ -1,12 +1,10 @@
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Копируем собранный JAR
-COPY build/libs/*.jar app.jar
+# Копируем JAR из target/
+COPY target/MovieRecommendationBot-*.jar app.jar
 
-# Порт приложения
 EXPOSE 8110
 
-# Запуск
 ENTRYPOINT ["java", "-jar", "app.jar"]
