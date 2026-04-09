@@ -58,7 +58,7 @@ pipeline {
                     sh """
                 echo "🔗 Connecting to VM ${env.VM_IP}..."
                 
-                # 🔐 Парсим переменные из .env (shell-переменные)
+                # 🔐 Парсим переменные из .env
                 DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
@@ -71,7 +71,28 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2-)
                 
-                # 🔧 ОДНО SSH-подключение для всех команд
+                # 🗄️ Копируем манифесты на ВМ (с проверкой)
+                echo "📦 Copying manifests to VM..."
+                
+                # Проверка исходных файлов
+                for f in ${PG_DIR} ${DEPLOY_DIR} ${SERVICE_DIR}; do
+                    if [ ! -f "\$f" ]; then
+                        echo "❌ Source file not found: \$f"
+                        exit 1
+                    fi
+                done
+                
+                # Копирование
+                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
+                    ${PG_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/postgres.yml || { echo "❌ scp failed"; exit 1; }
+                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
+                    ${DEPLOY_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/deployment.yml || { echo "❌ scp failed"; exit 1; }
+                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
+                    ${SERVICE_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/service.yml || { echo "❌ scp failed"; exit 1; }
+                
+                echo "✅ Manifests copied"
+                
+                # 🔧 ОДНО SSH-подключение для всех kubectl-команд
                 ssh -i \${SSH_KEY_FILE} \\
                     -o StrictHostKeyChecking=no \\
                     -o ConnectTimeout=30 \\
