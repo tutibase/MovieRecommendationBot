@@ -113,7 +113,7 @@ pipeline {
                         sh """
                     # 🔧 PATH и KUBECONFIG — в начале!
                     export PATH=/var/jenkins_home:\${PATH}
-                    echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
+                    printf '%s\\n' "\\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\\\$\\\$
                     export KUBECONFIG=/tmp/kubeconfig_\$\$
                     chmod 600 /tmp/kubeconfig_\$\$
                     
