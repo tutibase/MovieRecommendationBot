@@ -43,21 +43,22 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([
-                        string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT'),
+                        file(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_FILE'),  // ← Changed to file
                         file(credentialsId: 'app-env-content', variable: 'ENV_FILE_PATH')
                 ]) {
                     sh """
-                # 🔧 1. Настраиваем PATH в начале — для всех команд kubectl
+                # 🔧 1. Настраиваем PATH для kubectl
                 export PATH=/var/jenkins_home:\${PATH}
                 
-                # 🔐 2. Записываем kubeconfig во временный файл
-                echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
-                export KUBECONFIG=/tmp/kubeconfig_\$\$
-                chmod 600 /tmp/kubeconfig_\$\$
+                # 🔐 2. Используем файл kubeconfig напрямую
+                export KUBECONFIG=\${KUBECONFIG_FILE}
+                chmod 600 \${KUBECONFIG_FILE}
+                
+                # ✅ Проверка подключения (опционально, для отладки)
+                echo "🔗 Testing connection..."
+                kubectl cluster-info
                 
                 NAMESPACE="${K8S_NAMESPACE}"
-                
-                # ✅ Теперь все команды kubectl найдут бинарник и конфиг
                 
                 # Создаём namespace
                 kubectl create namespace \${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
@@ -98,9 +99,6 @@ pipeline {
                 
                 # Ждём готовности приложения
                 kubectl rollout status deployment/movie-recommendation-bot -n \${NAMESPACE} --timeout=300s
-                
-                # 🧹 Очистка
-                rm -f /tmp/kubeconfig_\$\$
             """
                 }
             }
@@ -109,13 +107,12 @@ pipeline {
         stage('Health Check') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    withCredentials([string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT')]) {
+                    withCredentials([file(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_FILE')]) {
                         sh """
                     # 🔧 PATH и KUBECONFIG — в начале!
                     export PATH=/var/jenkins_home:\${PATH}
-                    printf '%s\\n' "\\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\\\$\\\$
-                    export KUBECONFIG=/tmp/kubeconfig_\$\$
-                    chmod 600 /tmp/kubeconfig_\$\$
+                    export KUBECONFIG=\${KUBECONFIG_FILE}
+                    chmod 600 \${KUBECONFIG_FILE}
                     
                     echo "🔍 Checking pod status..."
                     kubectl get pods -l app=movie-bot -n ${K8S_NAMESPACE}
@@ -128,8 +125,6 @@ pipeline {
                     if [ "\$NODE_PORT" != "N/A" ]; then
                         echo "✅ App available at: http://${env.VM_IP}:\${NODE_PORT}"
                     fi
-                    
-                    rm -f /tmp/kubeconfig_\$\$
                 """
                     }
                 }
@@ -154,7 +149,6 @@ pipeline {
         }
         always {
             cleanWs()
-            sh 'rm -f /tmp/kubeconfig_* 2>/dev/null || true'
         }
     }
 }
