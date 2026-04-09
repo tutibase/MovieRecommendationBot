@@ -47,9 +47,17 @@ pipeline {
                         file(credentialsId: 'app-env-content', variable: 'ENV_FILE_PATH')
                 ]) {
                     sh """
-                # ... kubeconfig setup ...
+                # 🔧 1. Настраиваем PATH в начале — для всех команд kubectl
+                export PATH=/var/jenkins_home:\${PATH}
+                
+                # 🔐 2. Записываем kubeconfig во временный файл
+                echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
+                export KUBECONFIG=/tmp/kubeconfig_\$\$
+                chmod 600 /tmp/kubeconfig_\$\$
                 
                 NAMESPACE="${K8S_NAMESPACE}"
+                
+                # ✅ Теперь все команды kubectl найдут бинарник и конфиг
                 
                 # Создаём namespace
                 kubectl create namespace \${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
@@ -75,7 +83,7 @@ pipeline {
                     -n \${NAMESPACE} \\
                     --dry-run=client -o yaml | kubectl apply -f -
                 
-                # 🗄️ Применяем PostgreSQL ПЕРЕД приложением
+                # 🗄️ Применяем PostgreSQL
                 echo "🗄️ Deploying PostgreSQL..."
                 kubectl apply -f k8s/postgres.yml -n \${NAMESPACE}
                 
@@ -91,6 +99,7 @@ pipeline {
                 # Ждём готовности приложения
                 kubectl rollout status deployment/movie-recommendation-bot -n \${NAMESPACE} --timeout=300s
                 
+                # 🧹 Очистка
                 rm -f /tmp/kubeconfig_\$\$
             """
                 }
