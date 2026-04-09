@@ -43,7 +43,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([
-                        string(credentialsId: 'k8s-kubeconfig', variable: 'KUBECONFIG_CONTENT'),
+                        string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT'),
                         file(credentialsId: 'app-env-file', variable: 'ENV_FILE_PATH')
                 ]) {
                     sh """
@@ -100,7 +100,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    withCredentials([string(credentialsId: 'k8s-kubeconfig', variable: 'KUBECONFIG_CONTENT')]) {
+                    withCredentials([string(credentialsId: 'kubeconfig-vm', variable: 'KUBECONFIG_CONTENT')]) {
                         sh """
                             echo "\${KUBECONFIG_CONTENT}" > /tmp/kubeconfig_\$\$
                             export KUBECONFIG=/tmp/kubeconfig_\$\$
