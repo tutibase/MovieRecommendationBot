@@ -2,6 +2,9 @@ pipeline {
     agent any
 
     environment {
+        PG_DIR = 'MovieRecommendationBot/kuber/k8s/postgres.yml'
+        DEPLOY_DIR = 'MovieRecommendationBot/kuber/k8s/deployment.yml'
+        SERVICE_DIR = 'MovieRecommendationBot/kuber/k8s/service.yml'
         DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot-new-infra"
         IMAGE_TAG = "latest"
         K8S_NAMESPACE = "movie-bot-ns"
@@ -107,14 +110,14 @@ pipeline {
                 
                 # 🗄️ Копируем манифесты на ВМ
                 echo "📦 Copying manifests to VM..."
-                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
-                    k8s/postgres.yml \\
+                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
+                    ${PG_DIR} \\\\
                     ${SSH_USER}@${env.VM_IP}:/tmp/postgres.yml
-                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
-                    k8s/deployment.yml \\
+                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
+                    ${DEPLOY_DIR} \\\\
                     ${SSH_USER}@${env.VM_IP}:/tmp/deployment.yml
-                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
-                    k8s/service.yml \\
+                scp -i \\${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\\\
+                    ${SERVICE_DIR} \\\\
                     ${SSH_USER}@${env.VM_IP}:/tmp/service.yml
                 
                 # 🗄️ Применяем PostgreSQL
