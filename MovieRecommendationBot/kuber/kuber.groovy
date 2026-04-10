@@ -71,11 +71,8 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 
-                # ✅ Формируем DB_URL с правильным экранированием: \${VAR}
+                # ✅ Формируем DB_URL из компонентов
                 DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
-                
-                # 🔍 Отладочный вывод (опционально)
-                echo "🔍 Debug: DB_URL will be: jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
                 
                 # 🗄️ Копируем манифесты на ВМ (с проверкой)
                 echo "📦 Copying manifests to VM..."
@@ -92,6 +89,12 @@ pipeline {
                     ${DEPLOY_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/deployment.yml || { echo "❌ scp failed"; exit 1; }
                 scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
                     ${SERVICE_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/service.yml || { echo "❌ scp failed"; exit 1; }
+                
+                # 🗄️ Копируем SQL скрипт инициализации
+                echo "📦 Copying SQL init script..."
+                scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
+                    MovieRecommendationBot/src/main/resources/users_db.sql \\
+                    ${SSH_USER}@${env.VM_IP}:/tmp/users_db.sql || echo "⚠️ SQL script copy failed (optional)"
                 
                 echo "✅ Manifests copied"
                 
@@ -136,6 +139,14 @@ pipeline {
                         
                         echo '⏳ Waiting for PostgreSQL...'
                         kubectl rollout status deployment/postgres -n ${K8S_NAMESPACE} --timeout=120s
+                        
+                        # 🗄️ Инициализация базы данных
+                        echo '🗄️ Initializing database...'
+                        if kubectl exec -i -n ${K8S_NAMESPACE} -l app=postgres -- psql -U users_db -d users_db -f /tmp/users_db.sql 2>&1; then
+                            echo '✅ Database initialized successfully'
+                        else
+                            echo '⚠️ Database initialization failed or skipped (table may already exist)'
+                        fi
                         
                         echo '🚀 Deploying application...'
                         kubectl apply -f /tmp/deployment.yml -n ${K8S_NAMESPACE}
