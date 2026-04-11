@@ -140,30 +140,6 @@ pipeline {
                         echo '⏳ Waiting for PostgreSQL...'
                         kubectl rollout status deployment/postgres -n ${K8S_NAMESPACE} --timeout=120s
                         
-                        # 🗄️ Инициализация базы данных (исправлено)
-                        echo '🗄️ Initializing database...'
-                        POD_NAME=\$(kubectl get pods -n movie-bot-ns -l app=postgres -o jsonpath='{.items[0].metadata.name}')
-                        
-                        if [ -n "\$POD_NAME" ] && [ -f /tmp/users_db.sql ]; then
-                            echo "📦 Copying SQL to pod \$POD_NAME..."
-                            kubectl cp /tmp/users_db.sql \${POD_NAME}:/tmp/users_db.sql \\
-                                -n ${K8S_NAMESPACE} -c postgres 2>&1 || echo "⚠️ kubectl cp failed"
-                            
-                            echo "🔄 Executing users_db.sql..."
-                            INIT_OUTPUT=\$(kubectl exec -n ${K8S_NAMESPACE} \$POD_NAME -c postgres -- \\
-                                psql -U users_db -d users_db -f /tmp/users_db.sql 2>&1) || true
-                            
-                            echo "📋 SQL init output (first 30 lines):"
-                            echo "\${INIT_OUTPUT}" | head -30
-                            
-                            if echo "\${INIT_OUTPUT}" | grep -qiE "error|fatal|syntax"; then
-                                echo "⚠️ SQL initialization had errors"
-                            else
-                                echo "✅ Database initialization completed"
-                            fi
-                        else
-                            echo "⚠️ Could not find postgres pod or SQL file"
-                        fi
                         
                         echo '🚀 Deploying application...'
                         kubectl apply -f /tmp/deployment.yml -n ${K8S_NAMESPACE}
