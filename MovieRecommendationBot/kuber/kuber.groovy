@@ -142,15 +142,15 @@ pipeline {
                         
                         # 🗄️ Инициализация базы данных (исправлено)
                         echo '🗄️ Initializing database...'
-                        POSTGRES_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+                        POD_NAME=\$(kubectl get pods -n movie-bot-ns -l app=postgres -o jsonpath='{.items[0].metadata.name}')
                         
-                        if [ -n "\$POSTGRES_POD" ] && [ -f /tmp/users_db.sql ]; then
-                            echo "📦 Copying SQL to pod \$POSTGRES_POD..."
-                            kubectl cp /tmp/users_db.sql \${POSTGRES_POD}:/tmp/users_db.sql \\
+                        if [ -n "\$POD_NAME" ] && [ -f /tmp/users_db.sql ]; then
+                            echo "📦 Copying SQL to pod \$POD_NAME..."
+                            kubectl cp /tmp/users_db.sql \${POD_NAME}:/tmp/users_db.sql \\
                                 -n ${K8S_NAMESPACE} -c postgres 2>&1 || echo "⚠️ kubectl cp failed"
                             
                             echo "🔄 Executing users_db.sql..."
-                            INIT_OUTPUT=\$(kubectl exec -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
+                            INIT_OUTPUT=\$(kubectl exec -n ${K8S_NAMESPACE} \$POD_NAME -c postgres -- \\
                                 psql -U users_db -d users_db -f /tmp/users_db.sql 2>&1) || true
                             
                             echo "📋 SQL init output (first 30 lines):"
