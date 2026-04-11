@@ -156,6 +156,33 @@ pipeline {
             }
         }
 
+        stage('Initialize Database') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ssh-private-key',
+                        keyFileVariable: 'SSH_KEY_FILE'
+                )]) {
+                    sh """
+                echo "🗄️ Initializing database on ${env.VM_IP}..."
+                
+                ssh -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=30 \\
+                    ${SSH_USER}@${env.VM_IP} "
+                        POSTGRES_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=postgres -o name 2>/dev/null | head -1 | cut -d/ -f2)
+                        
+                        if [ -n \"\$POSTGRES_POD\" ] && [ -f /tmp/users_db.sql ]; then
+                            echo \"🔄 Executing in \$POSTGRES_POD...\"
+                            cat /tmp/users_db.sql | kubectl exec -i -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
+                                psql -U users_db -d users_db 2>&1 || true
+                            echo '✅ DB initialized'
+                        fi
+                    "
+            """
+                }
+            }
+        }
+
         stage('Health Check') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
