@@ -140,12 +140,29 @@ pipeline {
                         echo '⏳ Waiting for PostgreSQL...'
                         kubectl rollout status deployment/postgres -n ${K8S_NAMESPACE} --timeout=120s
                         
-                        # 🗄️ Инициализация базы данных
+                        # 🗄️ Инициализация базы данных (исправлено)
                         echo '🗄️ Initializing database...'
-                        if kubectl exec -i -n ${K8S_NAMESPACE} -l app=postgres -- psql -U users_db -d users_db -f /tmp/users_db.sql 2>&1; then
-                            echo '✅ Database initialized successfully'
+                        POSTGRES_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+                        
+                        if [ -n "\$POSTGRES_POD" ] && [ -f /tmp/users_db.sql ]; then
+                            echo "📦 Copying SQL to pod \$POSTGRES_POD..."
+                            kubectl cp /tmp/users_db.sql \${POSTGRES_POD}:/tmp/users_db.sql \\
+                                -n ${K8S_NAMESPACE} -c postgres 2>&1 || echo "⚠️ kubectl cp failed"
+                            
+                            echo "🔄 Executing users_db.sql..."
+                            INIT_OUTPUT=\$(kubectl exec -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
+                                psql -U users_db -d users_db -f /tmp/users_db.sql 2>&1) || true
+                            
+                            echo "📋 SQL init output (first 30 lines):"
+                            echo "\${INIT_OUTPUT}" | head -30
+                            
+                            if echo "\${INIT_OUTPUT}" | grep -qiE "error|fatal|syntax"; then
+                                echo "⚠️ SQL initialization had errors"
+                            else
+                                echo "✅ Database initialization completed"
+                            fi
                         else
-                            echo '⚠️ Database initialization failed or skipped (table may already exist)'
+                            echo "⚠️ Could not find postgres pod or SQL file"
                         fi
                         
                         echo '🚀 Deploying application...'
