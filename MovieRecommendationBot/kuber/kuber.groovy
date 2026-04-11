@@ -158,24 +158,77 @@ pipeline {
 
         stage('Initialize Database') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ssh-private-key',
-                        keyFileVariable: 'SSH_KEY_FILE'
-                )]) {
+                withCredentials([
+                        sshUserPrivateKey(
+                                credentialsId: 'ssh-private-key',
+                                keyFileVariable: 'SSH_KEY_FILE',
+                                usernameVariable: 'SSH_USER_VAR',
+                                passphraseVariable: ''
+                        )
+                ]) {
                     sh """
                 echo "🗄️ Initializing database on ${env.VM_IP}..."
                 
+                # 🔐 Копируем SQL-скрипт на ВМ (если ещё не там)
+                echo "📦 Copying users_db.sql to VM..."
+                scp -i \${SSH_KEY_FILE} \\
+                    -o StrictHostKeyChecking=no \\
+                    -o ConnectTimeout=30 \\
+                    MovieRecommendationBot/src/main/resources/users_db.sql \\
+                    ${SSH_USER}@${env.VM_IP}:/tmp/users_db.sql || {
+                        echo "⚠️ Failed to copy SQL script"
+                        exit 0  # Не останавливаем пайплайн, БД может быть уже инициализирована
+                    }
+                
+                # 🔧 Выполняем инициализацию на ВМ через SSH
+                # Используем двойные кавычки для ssh, чтобы подставить \${K8S_NAMESPACE} из Groovy
                 ssh -i \${SSH_KEY_FILE} \\
                     -o StrictHostKeyChecking=no \\
                     -o ConnectTimeout=30 \\
                     ${SSH_USER}@${env.VM_IP} "
+                        set -e  # Выход при ошибке (но мы обрабатываем ошибки ниже)
+                        
+                        echo '🔍 Finding postgres pod...'
+                        # Получаем имя пода (простая команда, без сложного jsonpath)
                         POSTGRES_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=postgres -o name 2>/dev/null | head -1 | cut -d/ -f2)
                         
-                        if [ -n \"\$POSTGRES_POD\" ] && [ -f /tmp/users_db.sql ]; then
-                            echo \"🔄 Executing in \$POSTGRES_POD...\"
-                            cat /tmp/users_db.sql | kubectl exec -i -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
-                                psql -U users_db -d users_db 2>&1 || true
-                            echo '✅ DB initialized'
+                        if [ -z \"\$POSTGRES_POD\" ]; then
+                            echo '❌ Could not find postgres pod'
+                            exit 0
+                        fi
+                        
+                        echo \"✅ Found pod: \$POSTGRES_POD\"
+                        
+                        # Проверяем, что файл есть на ВМ
+                        if [ ! -f /tmp/users_db.sql ]; then
+                            echo '❌ /tmp/users_db.sql not found on VM'
+                            exit 0
+                        fi
+                        
+                        # Проверяем, есть ли уже таблицы (идемпотентность)
+                        echo '🔍 Checking if tables already exist...'
+                        TABLES=\$(kubectl exec -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
+                            psql -U users_db -d users_db -t -c \"\\\\dt\" 2>/dev/null | wc -l)
+                        
+                        if [ \"\$TABLES\" -gt 1 ]; then
+                            echo 'ℹ️ Tables already exist, skipping initialization'
+                            exit 0
+                        fi
+                        
+                        # 🔄 Выполняем инициализацию через stdin (надёжнее, чем kubectl cp + -f)
+                        echo '🔄 Executing users_db.sql...'
+                        INIT_OUTPUT=\$(cat /tmp/users_db.sql | kubectl exec -i -n ${K8S_NAMESPACE} \$POSTGRES_POD -c postgres -- \\
+                            psql -U users_db -d users_db 2>&1) || true
+                        
+                        # Показываем вывод (первые 20 строк)
+                        echo '📋 Initialization output:'
+                        echo \"\${INIT_OUTPUT}\" | head -20
+                        
+                        # Проверяем на критические ошибки
+                        if echo \"\${INIT_OUTPUT}\" | grep -qiE 'error|fatal|syntax'; then
+                            echo '⚠️ Initialization had warnings/errors (see above)'
+                        else
+                            echo '✅ Database initialization completed successfully'
                         fi
                     "
             """
