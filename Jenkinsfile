@@ -65,19 +65,24 @@ pipeline {
 
                         // ВЕСЬ ДЕПЛОЙ ДОЛЖЕН БЫТЬ ВНУТРИ ОДНОГО SH БЛОКА
                         sh """
-                            # 1. Парсинг .env
-                            grep '=' \${ENV_FILE_PATH} | grep -v '^#' | sed '/^\$/d' > /tmp/clean.env
+                            # 1. Чистим файл от Windows-переносов строк (\r) и комментариев
+                            cat \${ENV_FILE_PATH} | tr -d '\\r' | grep '=' | grep -v '^#' | sed '/^\$/d' > /tmp/clean.env
+
+                            # 2. Загружаем переменные
                             set -a
                             . /tmp/clean.env
                             set +a
 
-                            echo "✅ Variables loaded. DB_HOST=\${DB_HOST}"
+                            echo "✅ Variables loaded."
+                            echo "DEBUG DB_HOST: [\${DB_HOST}]" # Квадратные скобки покажут скрытые символы, если они есть
 
-                            # 2. Формируем правильный URL вручную, чтобы избежать ошибок парсинга
+                            # 3. Собираем URL вручную из чистых компонентов
+                            # Это гарантирует, что URL будет правильным, даже если DB_URL в файле был кривой
                             CLEAN_DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
-                            echo "DEBUG: Using DB_URL: \${CLEAN_DB_URL}"
 
-                            # 3. Создаем Secret
+                            echo "DEBUG Final URL: \${CLEAN_DB_URL}"
+
+                            # 4. Создаем Secret
                             kubectl create secret generic bot-secrets \\
                                 --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
                                 --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
@@ -86,7 +91,7 @@ pipeline {
                                 -n \${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
 
-                            # 4. Создаем ConfigMap с правильным URL
+                            # 5. Создаем ConfigMap с ИСПРАВЛЕННЫМ URL
                             kubectl create configmap bot-config \\
                                 --from-literal=DB_HOST="\${DB_HOST}" \\
                                 --from-literal=DB_PORT="\${DB_PORT}" \\
@@ -99,18 +104,10 @@ pipeline {
                                 -n \${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
 
-                            echo "✅ Secrets and ConfigMaps created."
+                            echo "✅ Configs updated."
 
-                            # 5. Применяем манифесты
-                            echo '🚀 Applying Manifests...'
-                            kubectl apply -f \${K8S_DIR}/postgres.yaml -n \${NAMESPACE}
-                            kubectl apply -f \${K8S_DIR}/app.yaml -n \${NAMESPACE}
-
-                            # 6. Ждем запуска
-                            echo '⏳ Waiting for PostgreSQL...'
-                            kubectl rollout status deployment/postgres -n \${NAMESPACE} --timeout=120s
-
-                            echo '⏳ Waiting for Movie Bot...'
+                            # 6. Деплой
+                            kubectl rollout restart deployment/movie-bot -n \${NAMESPACE}
                             kubectl rollout status deployment/movie-bot -n \${NAMESPACE} --timeout=120s
 
                             rm -f /tmp/clean.env
