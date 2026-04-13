@@ -60,20 +60,35 @@ pipeline {
 
                         echo '📄 Parsing .env and creating K8s resources...'
 
+                        // Парсим .env файл в переменные окружения bash
+                        // Используем export, чтобы переменные были доступны следующим командам
                         sh """
-                            # Читаем переменные из файла
-                            source <(grep -v '^#' \${ENV_FILE_PATH} | xargs -d '\\n')
+                            # Читаем файл построчно, игнорируем комментарии и пустые строки
+                            while IFS='=' read -r key value; do
+                                # Пропускаем комментарии и пустые строки
+                                case "\$key" in
+                                    \\#*|"") continue ;;
+                                esac
+                                # Удаляем возможные кавычки и пробелы
+                                value=\$(echo "\$value" | sed 's/^"\\(.*\\)"\$/\\1/' | sed "s/^'\\(.*\\)'\$/\\1/")
+                                export "\$key=\$value"
+                            done < \${ENV_FILE_PATH}
 
-                            # Создаем Secret
+                            # Проверяем, что ключевые переменные загрузились
+                            echo "DB_HOST=\${DB_HOST}"
+                            echo "DB_PASSWORD=\${DB_PASSWORD}"
+
+                            # Создаем Secret (чувствительные данные)
                             kubectl create secret generic bot-secrets \\
                                 --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
                                 --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
                                 --from-literal=ADMIN_PASSWORD="\${ADMIN_PASSWORD}" \\
                                 --from-literal=API_KEY="\${API_KEY}" \\
-                                -n ${NAMESPACE} \\
+                                -n \${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
 
-                            # Создаем ConfigMap
+                            # Создаем ConfigMap (остальные данные)
+                            # DB_URL формируем явно, так как K8s не делает интерполяцию внутри значений
                             DB_URL_VAL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
 
                             kubectl create configmap bot-config \\
@@ -85,21 +100,25 @@ pipeline {
                                 --from-literal=HTTP_PORT="\${HTTP_PORT}" \\
                                 --from-literal=HTTP_HOST="\${HTTP_HOST}" \\
                                 --from-literal=BOT_USERNAME="\${BOT_USERNAME}" \\
-                                -n ${NAMESPACE} \\
+                                -n \${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
+
+                            echo "✅ Secrets and ConfigMaps created."
                         """
 
+                        // Применяем манифесты Postgres и Приложения
                         echo '🚀 Applying Manifests...'
                         sh """
-                            kubectl apply -f ${K8S_DIR}/postgres.yaml -n ${NAMESPACE}
-                            kubectl apply -f ${K8S_DIR}/app.yaml -n ${NAMESPACE}
+                            kubectl apply -f \${K8S_DIR}/postgres.yaml -n \${NAMESPACE}
+                            kubectl apply -f \${K8S_DIR}/app.yaml -n \${NAMESPACE}
                         """
 
+                        // Ждем запуска
                         echo '⏳ Waiting for PostgreSQL...'
-                        sh "kubectl rollout status deployment/postgres -n ${NAMESPACE} --timeout=120s"
+                        sh "kubectl rollout status deployment/postgres -n \${NAMESPACE} --timeout=120s"
 
                         echo '⏳ Waiting for Movie Bot...'
-                        sh "kubectl rollout status deployment/movie-bot -n ${NAMESPACE} --timeout=120s"
+                        sh "kubectl rollout status deployment/movie-bot -n \${NAMESPACE} --timeout=120s"
                     }
                 }
             }
