@@ -60,22 +60,22 @@ pipeline {
 
                         echo '📄 Parsing .env and creating K8s resources...'
 
-                        // Парсим .env файл
+                        // Парсим .env файл безопасно для Groovy
                         sh """
-                            # 1. Удаляем комментарии и пустые строки, создаем чистый временный файл
-                            grep -v '^#' \${ENV_FILE_PATH} | grep -v '^\s*$' > /tmp/clean.env
+                            # 1. Создаем чистый файл без комментариев и пустых строк
+                            # Используем простой grep, чтобы избежать проблем с экранированием в Groovy
+                            grep '=' \${ENV_FILE_PATH} | grep -v '^#' | sed '/^\$/d' > /tmp/clean.env
 
-                            # 2. Включаем автоматический экспорт всех переменных, которые мы сейчас загрузим
+                            # 2. Включаем автоматический экспорт переменных
                             set -a
 
-                            # 3. Загружаем переменные из чистого файла
-                            # Используем точку (.) как аналог source, который работает в sh
+                            # 3. Загружаем переменные (точка . работает в sh как source)
                             . /tmp/clean.env
 
                             # 4. Выключаем авто-экспорт
                             set +a
 
-                            echo "✅ Variables loaded. Checking DB_HOST: \${DB_HOST}"
+                            echo "✅ Variables loaded. DB_HOST=\${DB_HOST}"
 
                             # Создаем Secret
                             kubectl create secret generic bot-secrets \\
@@ -103,8 +103,7 @@ pipeline {
 
                             echo "✅ Secrets and ConfigMaps created."
 
-                            # Чистим за собой
-                            rm /tmp/clean.env
+                            rm -f /tmp/clean.env
                         """
 
                         // Применяем манифесты Postgres и Приложения
