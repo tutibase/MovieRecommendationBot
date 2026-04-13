@@ -90,18 +90,21 @@ pipeline {
                                 --dry-run=client -o yaml | kubectl apply -f -
 
                             # Создаем ConfigMap
-                            DB_URL_VAL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+                            # Игнорируем DB_URL из файла и собираем его сами чисто
+                            CLEAN_DB_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+                            echo "DEBUG: Using DB_URL: ${CLEAN_DB_URL}"
 
                             kubectl create configmap bot-config \\
-                                --from-literal=DB_HOST="\${DB_HOST}" \\
-                                --from-literal=DB_PORT="\${DB_PORT}" \\
-                                --from-literal=DB_NAME="\${DB_NAME}" \\
-                                --from-literal=DB_USERNAME="\${DB_USERNAME}" \\
-                                --from-literal=DB_URL="\${DB_URL_VAL}" \\
-                                --from-literal=HTTP_PORT="\${HTTP_PORT}" \\
-                                --from-literal=HTTP_HOST="\${HTTP_HOST}" \\
-                                --from-literal=BOT_USERNAME="\${BOT_USERNAME}" \\
-                                -n \${NAMESPACE} \\
+                                --from-literal=DB_HOST="${DB_HOST}" \\
+                                --from-literal=DB_PORT="${DB_PORT}" \\
+                                --from-literal=DB_NAME="${DB_NAME}" \\
+                                --from-literal=DB_USERNAME="${DB_USERNAME}" \\
+                                --from-literal=DB_URL="${CLEAN_DB_URL}" \\
+                                --from-literal=HTTP_PORT="${HTTP_PORT}" \\
+                                --from-literal=HTTP_HOST="0.0.0.0" \\
+                                --from-literal=BOT_USERNAME="${BOT_USERNAME}" \\
+                                -n ${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
 
                             echo "✅ Secrets and ConfigMaps created."
