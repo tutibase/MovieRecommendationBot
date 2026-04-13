@@ -60,25 +60,24 @@ pipeline {
 
                         echo '📄 Parsing .env and creating K8s resources...'
 
-                        // Парсим .env файл в переменные окружения bash
-                        // Используем export, чтобы переменные были доступны следующим командам
+                        // Парсим .env файл
                         sh """
-                            # Читаем файл построчно, игнорируем комментарии и пустые строки
-                            while IFS='=' read -r key value; do
-                                # Пропускаем комментарии и пустые строки
-                                case "\$key" in
-                                    \\#*|"") continue ;;
-                                esac
-                                # Удаляем возможные кавычки и пробелы
-                                value=\$(echo "\$value" | sed 's/^"\\(.*\\)"\$/\\1/' | sed "s/^'\\(.*\\)'\$/\\1/")
-                                export "\$key=\$value"
-                            done < \${ENV_FILE_PATH}
+                            # 1. Удаляем комментарии и пустые строки, создаем чистый временный файл
+                            grep -v '^#' \${ENV_FILE_PATH} | grep -v '^\s*$' > /tmp/clean.env
 
-                            # Проверяем, что ключевые переменные загрузились
-                            echo "DB_HOST=\${DB_HOST}"
-                            echo "DB_PASSWORD=\${DB_PASSWORD}"
+                            # 2. Включаем автоматический экспорт всех переменных, которые мы сейчас загрузим
+                            set -a
 
-                            # Создаем Secret (чувствительные данные)
+                            # 3. Загружаем переменные из чистого файла
+                            # Используем точку (.) как аналог source, который работает в sh
+                            . /tmp/clean.env
+
+                            # 4. Выключаем авто-экспорт
+                            set +a
+
+                            echo "✅ Variables loaded. Checking DB_HOST: \${DB_HOST}"
+
+                            # Создаем Secret
                             kubectl create secret generic bot-secrets \\
                                 --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
                                 --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
@@ -87,8 +86,7 @@ pipeline {
                                 -n \${NAMESPACE} \\
                                 --dry-run=client -o yaml | kubectl apply -f -
 
-                            # Создаем ConfigMap (остальные данные)
-                            # DB_URL формируем явно, так как K8s не делает интерполяцию внутри значений
+                            # Создаем ConfigMap
                             DB_URL_VAL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
 
                             kubectl create configmap bot-config \\
@@ -104,6 +102,9 @@ pipeline {
                                 --dry-run=client -o yaml | kubectl apply -f -
 
                             echo "✅ Secrets and ConfigMaps created."
+
+                            # Чистим за собой
+                            rm /tmp/clean.env
                         """
 
                         // Применяем манифесты Postgres и Приложения
