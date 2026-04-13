@@ -2,321 +2,150 @@ pipeline {
     agent any
 
     environment {
-        // === Credentials из Jenkins ===
-        YC_TOKEN      = credentials('yc-iam-token')
-        YC_CLOUD_ID   = credentials('yc-cloud-id')
-        YC_FOLDER_ID  = credentials('yc-folder-id')
-        SSH_KEY_FILE  = '/var/jenkins_home/.ssh/id_rsa'
-        DB_PASSWORD   = credentials('db-password')
-        ENV_FILE_PATH = credentials('bot-env-file')
-
-        // === Пути в проекте ===
-        TF_DIR        = 'MovieRecommendationBot/infra/terraform'
-        ANSIBLE_DIR   = 'MovieRecommendationBot/infra/ansible'
-        APP_DIR       = '/opt/moviebot'
-        PROJECT_DIR   = 'MovieRecommendationBot'
-
-        // === Переменные для пайплайна ===
-        VM_IP         = ''
-        JAR_FILE      = "${PROJECT_DIR}/target/MovieRecommendationBot-1.0-SNAPSHOT.jar"
+        PROJECT_DIR = 'MovieRecommendationBot'
+        K8S_DIR = 'MovieRecommendationBot/k8s'
+        CLUSTER_NAME = 'movie-bot-cluster'
+        IMAGE_NAME = 'movie-bot:latest'
+        NAMESPACE = 'default'
     }
 
     stages {
         // ==========================================
-        // ЭТАП 1: СБОРКА (BUILD)
+        // ЭТАП 1: ПОДГОТОВКА KUBERNETES (KIND)
         // ==========================================
-        stage('Build Application') {
+        stage('Setup Kubernetes Cluster') {
             steps {
                 script {
-                    echo '🚀 Starting Build Stage...'
-
-                    // 0. Очистка старого контейнера БД (на всякий случай)
-                    sh 'docker rm -f build-db || true'
-
-                    // 1. Подъем БД и импорт схемы
+                    echo '☸️ Checking/Creating Kind Cluster...'
                     sh """
-                        docker run -d --name build-db \\
-                            -e POSTGRES_PASSWORD=${DB_PASSWORD} \\
-                            -e POSTGRES_DB=users_db \\
-                            -p 54321:5432 \\
-                            postgres:15
+                        if ! kind get clusters | grep ${CLUSTER_NAME}; then
+                            kind create cluster --name ${CLUSTER_NAME}
+                        else
+                            echo "Cluster ${CLUSTER_NAME} already exists."
+                        fi
+                        # Убедимся, что kubectl видит этот кластер
+                        kubectl cluster-info --context kind-${CLUSTER_NAME}
+                    """
+                }
+            }
+        }
 
-                        echo "⏳ Waiting for DB to be ready..."
-                        sleep 20
+        // ==========================================
+        // ЭТАП 2: СБОРКА И DOCKER ОБРАЗ
+        // ==========================================
+        stage('Build & Dockerize') {
+            steps {
+                script {
+                    echo '🔨 Building Application...'
 
-                        echo "Checking databases..."
-                        docker exec build-db psql -U postgres -c "\\l" | grep users_db
-
-                        echo "Importing schema..."
-                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | \\
-                            docker exec -i build-db psql -U postgres -d users_db
-
-                        echo "✅ Schema imported."
+                    // 1. Временная БД для сборки (jOOQ)
+                    sh """
+                        docker run -d --name build-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=users_db -p 54321:5432 postgres:15
+                        sleep 15
+                        cat ${PROJECT_DIR}/src/main/resources/users_db.sql | docker exec -i build-db psql -U postgres -d users_db || true
                     """
 
-                    // 2. ДИАГНОСТИКА (проверка порта)
-                    echo '🔍 Testing TCP connection...'
-                    sh '''
-                        if timeout 5 bash -c 'echo > /dev/tcp/host.docker.internal/54321' 2>/dev/null; then
-                            echo "✅ TCP Port 54321 is OPEN"
-                        else
-                            echo "❌ TCP Port 54321 is CLOSED or Unreachable"
-                        fi
-                    '''
-
-                    // 3. Maven Сборка
                     dir("${PROJECT_DIR}") {
                         sh """
-                            echo "🔨 Starting Maven Build..."
                             mvn clean package -DskipTests \\
-                                -Ddb.password=${DB_PASSWORD} \\
+                                -Ddb.password=password \\
                                 -Ddb.url=jdbc:postgresql://host.docker.internal:54321/users_db \\
                                 -Ddb.user=postgres
                         """
                     }
 
-                    // 4. ПРОВЕРКА наличия JAR
-                    script {
-                        if (!fileExists(JAR_FILE)) {
-                            error "❌ JAR file not found at ${JAR_FILE}!"
-                        }
-                        echo "✅ Found JAR: ${JAR_FILE}"
-                    }
-
-                    // 5. Очистка БД
-                    sh 'docker rm -f build-db'
-                }
-            }
-            post {
-                success {
-                    archiveArtifacts artifacts: "${PROJECT_DIR}/target/*.jar", fingerprint: true
-                }
-                always {
                     sh 'docker rm -f build-db || true'
+
+                    // 2. Сборка Docker образа
+                    echo '🐳 Building Docker Image...'
+                    sh "docker build -t ${IMAGE_NAME} ${PROJECT_DIR}/"
+
+                    // 3. Загрузка образа в Kind
+                    echo '📦 Loading Image into Kind...'
+                    sh "kind load docker-image ${IMAGE_NAME} --name ${CLUSTER_NAME}"
                 }
             }
         }
 
         // ==========================================
-        // ЭТАП 2: ИНФРАСТРУКТУРА (TERRAFORM)
+        // ЭТАП 3: DEPLOY TO KUBERNETES
         // ==========================================
-        stage('Create Infrastructure') {
-            steps {
-                echo '☁️ Creating Infrastructure in Yandex Cloud...'
-                dir("${TF_DIR}") {
-                    withCredentials([
-                        string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
-                        string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
-                        string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
-                        string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
-                    ]) {
-                        script {
-                            // Создаем конфиг зеркала
-                            sh '''
-                                mkdir -p ~/.terraform.d
-                                cat > ~/.terraformrc <<EOF
-provider_installation {
-  network_mirror {
-    url = "https://terraform-mirror.yandexcloud.net/"
-    include = ["registry.terraform.io/*/*"]
-  }
-  direct {
-    exclude = ["registry.terraform.io/*/*"]
-  }
-}
-EOF
-                                echo "✅ Terraform mirror configured"
-                            '''
-
-                            // Получаем IAM токен через OAuth
-                            echo '🔄 Exchanging OAuth token for IAM token...'
-
-                            def iamToken = sh(
-                                script: """
-                                    curl -s -X POST \\
-                                        -H "Content-Type: application/json" \\
-                                        -d '{"yandexPassportOauthToken": "'\${YC_OAUTH_TOKEN}'"}' \\
-                                        "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
-                                """,
-                                returnStdout: true
-                            ).trim()
-
-                            if (iamToken == null || iamToken.isEmpty() || iamToken.contains("error") || iamToken.contains("parse error")) {
-                                error "❌ Failed to obtain IAM token. Response: ${iamToken}"
-                            }
-
-                            echo "✅ IAM Token received successfully."
-
-                            sh """
-                                terraform init -input=false
-                                terraform apply -auto-approve -input=false \\
-                                    -var="yc_token=${iamToken}" \\
-                                    -var="cloud_id=${TF_VAR_cloud_id}" \\
-                                    -var="folder_id=${TF_VAR_folder_id}" \\
-                                    -var="ssh_public_key=${TF_VAR_ssh_public_key}"
-                            """
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==========================================
-        // ЭТАП 3: НАСТРОЙКА ОКРУЖЕНИЯ (ANSIBLE)
-        // ==========================================
-        stage('Provision Server') {
+        stage('Deploy to K8s') {
             steps {
                 script {
-                    echo '⚙️ Provisioning Server with Ansible...'
+                    // Берем .env файл из Jenkins Credentials
+                    withCredentials([file(credentialsId: 'bot-env-file', variable: 'ENV_FILE_PATH')]) {
 
-                    // 1. Получаем IP созданной ВМ
-                    VM_IP = sh(script: "cd ${TF_DIR} && terraform output -raw vm_public_ip", returnStdout: true).trim()
-                    echo "📍 VM IP: ${VM_IP}"
+                        echo '📄 Parsing .env and creating K8s resources...'
 
-                    // 2. Ждем доступности SSH (ВАЖНО!)
-                    echo '⏳ Waiting for SSH to become available...'
-                    sh """
-                        for i in \$(seq 1 30); do
-                            if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i ${SSH_KEY_FILE} ubuntu@${VM_IP} "echo 'SSH is ready'" 2>/dev/null; then
-                                echo "✅ SSH is accessible!"
-                                exit 0
-                            fi
-                            echo "⏳ Attempt \$i/30: SSH not ready yet. Waiting 10s..."
-                            sleep 10
-                        done
-                        echo "❌ SSH did not become available in time."
-                        exit 1
-                    """
-
-                    // 3. Генерируем Inventory для Ansible
-                    sh """
-                        echo "[all]" > ${ANSIBLE_DIR}/inventory.ini
-                        echo "${VM_IP} ansible_user=ubuntu ansible_ssh_private_key_file=${SSH_KEY_FILE}" >> ${ANSIBLE_DIR}/inventory.ini
-                    """
-
-                    // 4. Запускаем Playbook
-                    dir("${ANSIBLE_DIR}") {
+                        // Скрипт парсинга .env и создания Secret/ConfigMap
                         sh """
-                            ansible-playbook -i inventory.ini playbook.yml \\
-                                --private-key ${SSH_KEY_FILE} \\
-                                --extra-vars "db_password=${DB_PASSWORD} ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+                            # Читаем переменные из файла
+                            source <(grep -v '^#' \${ENV_FILE_PATH} | xargs -d '\\n')
+
+                            # Создаем Secret (чувствительные данные)
+                            kubectl create secret generic bot-secrets \\
+                                --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
+                                --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
+                                --from-literal=ADMIN_PASSWORD="\${ADMIN_PASSWORD}" \\
+                                --from-literal=API_KEY="\${API_KEY}" \\
+                                -n ${NAMESPACE} \\
+                                --dry-run=client -o yaml | kubectl apply -f -
+
+                            # Создаем ConfigMap (остальные данные)
+                            # DB_URL формируем явно, так как K8s не делает интерполяцию внутри значений
+                            DB_URL_VAL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+
+                            kubectl create configmap bot-config \\
+                                --from-literal=DB_HOST="\${DB_HOST}" \\
+                                --from-literal=DB_PORT="\${DB_PORT}" \\
+                                --from-literal=DB_NAME="\${DB_NAME}" \\
+                                --from-literal=DB_USERNAME="\${DB_USERNAME}" \\
+                                --from-literal=DB_URL="\${DB_URL_VAL}" \\
+                                --from-literal=HTTP_PORT="\${HTTP_PORT}" \\
+                                --from-literal=HTTP_HOST="\${HTTP_HOST}" \\
+                                --from-literal=BOT_USERNAME="\${BOT_USERNAME}" \\
+                                -n ${NAMESPACE} \\
+                                --dry-run=client -o yaml | kubectl apply -f -
+
+                            echo "✅ Secrets and ConfigMaps created."
                         """
+
+                        // Применяем манифесты Postgres и Приложения
+                        echo '🚀 Applying Manifests...'
+                        sh """
+                            kubectl apply -f ${K8S_DIR}/postgres.yaml -n ${NAMESPACE}
+                            kubectl apply -f ${K8S_DIR}/app.yaml -n ${NAMESPACE}
+                        """
+
+                        // Ждем запуска
+                        echo '⏳ Waiting for PostgreSQL...'
+                        sh "kubectl rollout status deployment/postgres -n ${NAMESPACE} --timeout=120s"
+
+                        echo '⏳ Waiting for Movie Bot...'
+                        sh "kubectl rollout status deployment/movie-bot -n ${NAMESPACE} --timeout=120s"
                     }
                 }
             }
         }
 
-        // ==========================================
-        // ЭТАП 4: ДЕПЛОЙ АРТЕФАКТА
-        // ==========================================
-        stage('Deploy Artifact') {
-            steps {
-                script {
-                    echo '📦 Deploying Application...'
-
-                    if (!fileExists(JAR_FILE)) {
-                        error "❌ Cannot deploy: JAR file missing!"
-                    }
-
-                    // 1. Копируем JAR
-                    sh """
-                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ${JAR_FILE} ubuntu@${VM_IP}:${APP_DIR}/MovieRecommendationBot.jar
-                    """
-
-                    // 2. Копируем .env файл
-                    sh """
-                        scp -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ${ENV_FILE_PATH} ubuntu@${VM_IP}:${APP_DIR}/.env
-                    """
-
-                    // 3. Перезапускаем сервис
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ubuntu@${VM_IP} "sudo systemctl daemon-reload && sudo systemctl restart moviebot"
-                    """
-                }
-            }
-        }
-
-        // ==========================================
-        // ЭТАП 5: ПРОВЕРКА СТАТУСА
-        // ==========================================
         stage('Check Status') {
             steps {
                 script {
-                    echo '🔍 Checking Service Status...'
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ubuntu@${VM_IP} "sudo systemctl status moviebot --no-pager || true"
-
-                        echo "📜 Last 20 logs:"
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_FILE} \\
-                            ubuntu@${VM_IP} "sudo journalctl -u moviebot -n 20 --no-pager || true"
+                        echo "📜 Pods status:"
+                        kubectl get pods -n ${NAMESPACE}
+                        echo "🌐 Services:"
+                        kubectl get svc -n ${NAMESPACE}
                     """
                 }
             }
         }
     }
 
-    // ==========================================
-    // ФИНАЛ: ОЧИСТКА (ВСЕГДА)
-    // ==========================================
     post {
         always {
-            echo '🧹 Cleaning up infrastructure...'
-
-            script {
-                def tfDir = 'MovieRecommendationBot/infra/terraform'
-
-                if (fileExists(tfDir)) {
-                    dir("${tfDir}") {
-                        withCredentials([
-                            string(credentialsId: 'yc-oauth-token', variable: 'YC_OAUTH_TOKEN'),
-                            string(credentialsId: 'yc-cloud-id', variable: 'TF_VAR_cloud_id'),
-                            string(credentialsId: 'yc-folder-id', variable: 'TF_VAR_folder_id'),
-                            string(credentialsId: 'ssh-public-key', variable: 'TF_VAR_ssh_public_key')
-                        ]) {
-                            script {
-                                echo '🔄 Exchanging OAuth token for IAM token (for cleanup)...'
-
-                                def iamToken = sh(
-                                    script: """
-                                        curl -s -X POST \\
-                                            -H "Content-Type: application/json" \\
-                                            -d '{"yandexPassportOauthToken": "'\${YC_OAUTH_TOKEN}'"}' \\
-                                            "https://iam.api.cloud.yandex.net/iam/v1/tokens" | jq -r '.iamToken'
-                                    """,
-                                    returnStdout: true
-                                ).trim()
-
-                                if (iamToken != null && !iamToken.isEmpty() && !iamToken.contains("error") && !iamToken.contains("parse error")) {
-                                    sh """
-                                        if [ -f "terraform.tfstate" ]; then
-                                            terraform destroy -auto-approve -input=false \\
-                                                -var="yc_token=${iamToken}" \\
-                                                -var="cloud_id=${TF_VAR_cloud_id}" \\
-                                                -var="folder_id=${TF_VAR_folder_id}" \\
-                                                -var="ssh_public_key=${TF_VAR_ssh_public_key}"
-                                        else
-                                            echo "⚠️ No state file found. Skipping destroy."
-                                        fi
-                                    """
-                                } else {
-                                    echo "⚠️ Failed to get IAM token for cleanup. Skipping destroy."
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    echo "⚠️ Directory ${tfDir} not found. Skipping Terraform cleanup."
-                }
-            }
-
             cleanWs()
-        }
-        failure {
-            echo '❌ Pipeline failed! Check console output for details.'
         }
     }
 }

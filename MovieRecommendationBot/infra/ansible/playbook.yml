@@ -46,8 +46,6 @@
       shell: |
         su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '{{ db_password }}';\""
       tags: database
-      # Мы не используем become_user, чтобы Ansible не создавал временные файлы.
-      # Весь скрипт выполняется от root, который может делать su.
 
     # 2. Создание базы данных
     - name: Create application database
