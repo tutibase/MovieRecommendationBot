@@ -50,64 +50,84 @@ pipeline {
                 }
             }
         }
+
         // ==========================================
         // ЭТАП 2: DEPLOY TO KUBERNETES
         // ==========================================
-                stage('Deploy to K8s') {
-                    steps {
-                        script {
-                            echo '📄 Checking K8s Connection...'
-                            sh "kubectl cluster-info"
+        stage('Deploy to K8s') {
+            steps {
+                script {
+                    echo '📄 Checking K8s Connection...'
+                    sh "kubectl cluster-info"
 
-                            withCredentials([file(credentialsId: 'bot-env-file', variable: 'ENV_FILE_PATH')]) {
-                                sh """
-                                    # 1. Подготовка переменных окружения (как у вас было)
-                                    cat \${ENV_FILE_PATH} | tr -d '\\r' | grep '=' | grep -v '^#' | sed '/^\$/d' > /tmp/clean.env
-                                    set -a
-                                    . /tmp/clean.env
-                                    set +a
+                    withCredentials([file(credentialsId: 'bot-env-file', variable: 'ENV_FILE_PATH')]) {
 
-                                    # 2. Формируем правильный URL
-                                    CLEAN_DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
+                        echo '📄 Parsing .env and Deploying...'
 
-                                    # 3. Создаем/Обновляем Secret и ConfigMap
-                                    kubectl create secret generic bot-secrets \\
-                                        --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
-                                        --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
-                                        --from-literal=ADMIN_PASSWORD="\${ADMIN_PASSWORD}" \\
-                                        --from-literal=API_KEY="\${API_KEY}" \\
-                                        -n \${NAMESPACE} \\
-                                        --dry-run=client -o yaml | kubectl apply -f -
+                        sh """
+                            # 1. Чистим файл от Windows-переносов строк (\\r) и комментариев
+                            cat \${ENV_FILE_PATH} | tr -d '\\r' | grep '=' | grep -v '^#' | sed '/^\$/d' > /tmp/clean.env
 
-                                    kubectl create configmap bot-config \\
-                                        --from-literal=DB_HOST="\${DB_HOST}" \\
-                                        --from-literal=DB_PORT="\${DB_PORT}" \\
-                                        --from-literal=DB_NAME="\${DB_NAME}" \\
-                                        --from-literal=DB_USERNAME="\${DB_USERNAME}" \\
-                                        --from-literal=DB_URL="\${CLEAN_DB_URL}" \\
-                                        --from-literal=HTTP_PORT="\${HTTP_PORT}" \\
-                                        --from-literal=HTTP_HOST="0.0.0.0" \\
-                                        --from-literal=BOT_USERNAME="\${BOT_USERNAME}" \\
-                                        -n \${NAMESPACE} \\
-                                        --dry-run=client -o yaml | kubectl apply -f -
+                            # 2. Загружаем переменные
+                            set -a
+                            . /tmp/clean.env
+                            set +a
 
-                                    # 4. ВАЖНОЕ ИЗМЕНЕНИЕ: Применяем манифесты Deployment и Service
-                                    # Предположим, что ваши yaml файлы лежат в папке k8s/ в репозитории
-                                    # Если они в корне, уберите путь k8s/
-                                    kubectl apply -f ${K8S_DIR}/deployment.yaml -n ${NAMESPACE}
-                                    kubectl apply -f ${K8S_DIR}/service.yaml -n ${NAMESPACE}
+                            echo "✅ Variables loaded."
 
-                                    # Если у вас один общий файл manifest.yaml, то:
-                                    # kubectl apply -f ${K8S_DIR}/manifest.yaml -n ${NAMESPACE}
+                            # 3. Собираем URL вручную из чистых компонентов
+                            CLEAN_DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
 
-                                    # 5. Ждем запуска (только после apply)
-                                    echo "⏳ Waiting for deployment to be ready..."
-                                    kubectl rollout status deployment/movie-bot -n \${NAMESPACE} --timeout=120s
-                                """
-                            }
-                        }
+                            # 4. Создаем/Обновляем Secret
+                            kubectl create secret generic bot-secrets \\
+                                --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
+                                --from-literal=BOT_TOKEN="\${BOT_TOKEN}" \\
+                                --from-literal=ADMIN_PASSWORD="\${ADMIN_PASSWORD}" \\
+                                --from-literal=API_KEY="\${API_KEY}" \\
+                                -n \${NAMESPACE} \\
+                                --dry-run=client -o yaml | kubectl apply -f -
+
+                            # 5. Создаем/Обновляем ConfigMap
+                            kubectl create configmap bot-config \\
+                                --from-literal=DB_HOST="\${DB_HOST}" \\
+                                --from-literal=DB_PORT="\${DB_PORT}" \\
+                                --from-literal=DB_NAME="\${DB_NAME}" \\
+                                --from-literal=DB_USERNAME="\${DB_USERNAME}" \\
+                                --from-literal=DB_URL="\${CLEAN_DB_URL}" \\
+                                --from-literal=HTTP_PORT="\${HTTP_PORT}" \\
+                                --from-literal=HTTP_HOST="0.0.0.0" \\
+                                --from-literal=BOT_USERNAME="\${BOT_USERNAME}" \\
+                                -n \${NAMESPACE} \\
+                                --dry-run=client -o yaml | kubectl apply -f -
+
+                            echo "✅ Configs updated."
+
+                            # 6. ВАЖНО: Сначала применяем манифесты (create/update)
+                            # Укажите правильный путь к вашим файлам.
+                            # Если они в папке k8s внутри проекта:
+                            echo "🚀 Applying Kubernetes Manifests..."
+
+                            # Применяем БД
+                            kubectl apply -f ${K8S_DIR}/postgre.yaml -n ${NAMESPACE}
+
+                            # Применяем Приложение
+                            kubectl apply -f ${K8S_DIR}/app.yaml -n ${NAMESPACE}
+
+                            # 7. Форсируем перезапуск подов приложения, чтобы подтянуть новый образ :latest
+                            # Теперь эта команда сработает, так как мы только что сделали apply
+                            echo "🔄 Restarting deployment to pick up new image..."
+                            kubectl rollout restart deployment/movie-bot -n \${NAMESPACE}
+
+                            # 8. Ждем готовности
+                            echo "⏳ Waiting for rollout to complete..."
+                            kubectl rollout status deployment/movie-bot -n \${NAMESPACE} --timeout=120s
+
+                            rm -f /tmp/clean.env
+                        """
                     }
                 }
+            }
+        }
 
 
         stage('Check Status') {
