@@ -6,6 +6,7 @@ pipeline {
         K8S_DIR = 'MovieRecommendationBot/k8s'
         IMAGE_NAME = 'movie-bot:latest'
         NAMESPACE = 'default'
+        CLUSTER_NAME = 'movie-bot-cluster'
     }
 
     stages {
@@ -17,14 +18,14 @@ pipeline {
                 script {
                     echo '🔨 Building Application...'
 
-                    // 1. Временная БД для сборки (jOOQ требует БД для генерации кода)
+                    // 1. Временная БД для сборки (jOOQ)
                     sh """
                         docker run -d --name build-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=users_db -p 54321:5432 postgres:15
                         sleep 15
                         cat ${PROJECT_DIR}/src/main/resources/users_db.sql | docker exec -i build-db psql -U postgres -d users_db || true
                     """
 
-                    // 2. Сборка JAR через Maven (здесь jOOQ сработает, так как есть БД)
+                    // 2. Сборка JAR
                     dir("${PROJECT_DIR}") {
                         sh """
                             mvn clean package -DskipTests \\
@@ -37,16 +38,18 @@ pipeline {
                     sh 'docker rm -f build-db || true'
 
                     // 3. Сборка Docker образа
-                    // Теперь Dockerfile простой, он просто копирует готовый JAR
                     echo '🐳 Building Docker Image...'
-
-                    // Важно: собираем образ из папки PROJECT_DIR, где лежит target/ и новый Dockerfile
-                    // Если Dockerfile лежит в корне PROJECT_DIR, то команда верная.
                     sh "docker build -t ${IMAGE_NAME} ${PROJECT_DIR}/"
+
+                    // 4. ВАЖНО: Загружаем образ в кластер Kind!
+                    // Без этого шага K8s не увидит локальный образ из Jenkins
+                    echo '📦 Loading image into Kind cluster...'
+                    sh """
+                        kind load docker-image ${IMAGE_NAME} --name ${CLUSTER_NAME}
+                    """
                 }
             }
         }
-
         // ==========================================
         // ЭТАП 2: DEPLOY TO KUBERNETES
         // ==========================================
