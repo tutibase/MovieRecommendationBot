@@ -108,7 +108,7 @@ pipeline {
                             echo "🚀 Applying Kubernetes Manifests..."
 
                             # Применяем БД
-                            kubectl apply -f ${K8S_DIR}/postgre.yaml -n ${NAMESPACE}
+                            kubectl apply -f ${K8S_DIR}/postgres.yaml -n ${NAMESPACE}
 
                             # Применяем Приложение
                             kubectl apply -f ${K8S_DIR}/app.yaml -n ${NAMESPACE}
