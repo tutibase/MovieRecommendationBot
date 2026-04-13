@@ -17,13 +17,14 @@ pipeline {
                 script {
                     echo '🔨 Building Application...'
 
-                    // 1. Временная БД для сборки (jOOQ)
+                    // 1. Временная БД для сборки (jOOQ требует БД для генерации кода)
                     sh """
                         docker run -d --name build-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=users_db -p 54321:5432 postgres:15
                         sleep 15
                         cat ${PROJECT_DIR}/src/main/resources/users_db.sql | docker exec -i build-db psql -U postgres -d users_db || true
                     """
 
+                    // 2. Сборка JAR через Maven (здесь jOOQ сработает, так как есть БД)
                     dir("${PROJECT_DIR}") {
                         sh """
                             mvn clean package -DskipTests \\
@@ -35,17 +36,13 @@ pipeline {
 
                     sh 'docker rm -f build-db || true'
 
-                    // 2. Сборка Docker образа
+                    // 3. Сборка Docker образа
+                    // Теперь Dockerfile простой, он просто копирует готовый JAR
                     echo '🐳 Building Docker Image...'
-                    sh "docker build -t ${IMAGE_NAME} ${PROJECT_DIR}/"
 
-                    // 3. Загрузка образа в Kind (на хосте)
-                    // Так как Jenkins подключен к тому же Docker демону, что и хост,
-                    // образ уже доступен для Kind, если Kind использует тот же Docker.
-                    // Но на всякий случай сделаем load, если Kind изолирован.
-                    // Для простоты лабы: если Kind на хосте использует тот же Docker socket,
-                    // то image уже виден. Если нет - раскомментируй строку ниже:
-                    // sh "kind load docker-image ${IMAGE_NAME} --name movie-bot-cluster"
+                    // Важно: собираем образ из папки PROJECT_DIR, где лежит target/ и новый Dockerfile
+                    // Если Dockerfile лежит в корне PROJECT_DIR, то команда верная.
+                    sh "docker build -t ${IMAGE_NAME} ${PROJECT_DIR}/"
                 }
             }
         }
