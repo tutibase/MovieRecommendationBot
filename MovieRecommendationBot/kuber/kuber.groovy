@@ -33,7 +33,7 @@ pipeline {
                     if (fileExists('vm_ip.txt')) {
                         env.VM_IP = sh(script: 'cat vm_ip.txt', returnStdout: true).trim()
                         if (env.VM_IP) {
-                            echo "🌐 Target VM IP: ${env.VM_IP}"
+                            echo "Target VM IP: ${env.VM_IP}"
                         } else {
                             error("❌ vm_ip.txt is empty")
                         }
@@ -57,8 +57,8 @@ pipeline {
                 ]) {
                     sh """
                 echo "🔗 Connecting to VM ${env.VM_IP}..."
-                
-                # 🔐 Парсим переменные из .env (с tr -d '\r' для Windows line endings)
+                set +x
+                # Парсим переменные из .env (с tr -d '\r' для Windows line endings)
                 DB_PASSWORD=\$(grep "^DB_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 BOT_TOKEN=\$(grep "^BOT_TOKEN=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 ADMIN_PASSWORD=\$(grep "^ADMIN_PASSWORD=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
@@ -71,11 +71,11 @@ pipeline {
                 HTTP_HOST=\$(grep "^HTTP_HOST=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 BOT_USERNAME=\$(grep "^BOT_USERNAME=" \${ENV_FILE_PATH} | cut -d'=' -f2- | tr -d '\r')
                 
-                # ✅ Формируем DB_URL из компонентов
+                # Формируем DB_URL из компонентов
                 DB_URL="jdbc:postgresql://\${DB_HOST}:\${DB_PORT}/\${DB_NAME}"
                 
-                # 🗄️ Копируем манифесты на ВМ (с проверкой)
-                echo "📦 Copying manifests to VM..."
+                # Копируем манифесты на ВМ (с проверкой)
+                echo "Copying manifests to VM..."
                 for f in ${PG_DIR} ${DEPLOY_DIR} ${SERVICE_DIR}; do
                     if [ ! -f "\$f" ]; then
                         echo "❌ Source file not found: \$f"
@@ -91,10 +91,10 @@ pipeline {
                     ${SERVICE_DIR} ${SSH_USER}@${env.VM_IP}:/tmp/service.yml || { echo "❌ scp failed"; exit 1; }
                 
                 # 🗄️ Копируем SQL скрипт инициализации
-                echo "📦 Copying SQL init script..."
+                echo "Copying SQL init script..."
                 scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o ConnectTimeout=30 \\
                     MovieRecommendationBot/src/main/resources/users_db.sql \\
-                    ${SSH_USER}@${env.VM_IP}:/tmp/users_db.sql || echo "⚠️ SQL script copy failed (optional)"
+                    ${SSH_USER}@${env.VM_IP}:/tmp/users_db.sql || echo " SQL script copy failed (optional)"
                 
                 echo "✅ Manifests copied"
                 
@@ -106,13 +106,13 @@ pipeline {
                     -o ServerAliveCountMax=3 \\
                     ${SSH_USER}@${env.VM_IP} "
                         set -e
-                        echo '🔗 Testing connection...'
+                        echo ' Testing connection...'
                         kubectl cluster-info
                         
-                        echo '📦 Creating namespace...'
+                        echo ' Creating namespace...'
                         kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                         
-                        echo '🔐 Creating Secret...'
+                        echo 'Creating Secret...'
                         kubectl create secret generic app-secrets \\
                             --from-literal=DB_PASSWORD='\${DB_PASSWORD}' \\
                             --from-literal=BOT_TOKEN='\${BOT_TOKEN}' \\
@@ -121,7 +121,7 @@ pipeline {
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
-                        echo '📄 Creating ConfigMap...'
+                        echo ' Creating ConfigMap...'
                         kubectl create configmap app-config \\
                             --from-literal=DB_URL="\${DB_URL}" \\
                             --from-literal=DB_NAME='\${DB_NAME}' \\
@@ -134,21 +134,21 @@ pipeline {
                             -n ${K8S_NAMESPACE} \\
                             --dry-run=client -o yaml | kubectl apply -f -
                         
-                        echo '🗄️ Deploying PostgreSQL...'
+                        echo 'Deploying PostgreSQL...'
                         kubectl apply -f /tmp/postgres.yml -n ${K8S_NAMESPACE}
                         
-                        echo '⏳ Waiting for PostgreSQL...'
+                        echo 'Waiting for PostgreSQL...'
                         kubectl rollout status deployment/postgres -n ${K8S_NAMESPACE} --timeout=120s
                         
                         
-                        echo '🚀 Deploying application...'
+                        echo 'Deploying application...'
                         kubectl apply -f /tmp/deployment.yml -n ${K8S_NAMESPACE}
                         kubectl apply -f /tmp/service.yml -n ${K8S_NAMESPACE}
                         
-                        echo '⏳ Waiting for application...'
+                        echo 'Waiting for application...'
                         kubectl rollout status deployment/movie-recommendation-bot -n ${K8S_NAMESPACE} --timeout=300s
                         
-                        echo '🧹 Cleaning up...'
+                        echo 'Cleaning up...'
                         rm -f /tmp/postgres.yml /tmp/deployment.yml /tmp/service.yml
                     "
             """
@@ -168,16 +168,16 @@ pipeline {
                             )
                     ]) {
                         sh """
-                    echo "🔍 Running health checks on ${env.VM_IP}..."
+                    echo "Running health checks on ${env.VM_IP}..."
                     
                     ssh -i \${SSH_KEY_FILE} \\
                         -o StrictHostKeyChecking=no \\
                         -o ConnectTimeout=10 \\
                         ${SSH_USER}@${env.VM_IP} "
-                            echo '🔍 Checking pod status...'
+                            echo 'Checking pod status...'
                             kubectl get pods -l app=movie-bot -n ${K8S_NAMESPACE}
                             
-                            echo '🔍 Checking service...'
+                            echo 'Checking service...'
                             kubectl get svc movie-bot-service -n ${K8S_NAMESPACE}
                             
                             # Показать NodePort для доступа
