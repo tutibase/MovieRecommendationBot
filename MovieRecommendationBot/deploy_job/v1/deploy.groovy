@@ -6,7 +6,6 @@ pipeline {
         DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot"
         IMAGE_TAG = "latest"
         PATH="/home/ubuntu/venv/bin:$PATH"
-        VM_IP = ""
 
         // Infra paths
         STACK_OUTPUTS = 'stack_outputs.json'
