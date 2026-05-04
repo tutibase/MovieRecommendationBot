@@ -29,9 +29,12 @@ pipeline {
                     def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
                     def outputs = readJSON text: rawContent
 
+                    // Отладка: проверяем тип объекта
+                    def ipObj = outputs.server_private_ip
                     // Явное получение значения
                     def ipVal = ipObj.get('output_value')
                     if (ipVal) {
+                        // ВАЖНО: Явно приводим к строке и убираем пробелы
                         String cleanIp = ipVal.toString().trim()
 
                         env.VM_IP = cleanIp
