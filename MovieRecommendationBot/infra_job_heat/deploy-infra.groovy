@@ -11,7 +11,7 @@ pipeline {
     environment {
         STACK_NAME = "movie-bot-poly"
         HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job_heat/heat/stack.yaml'
-        OS_IMAGE = 'ununtu-22.04'
+        OS_IMAGE = 'ubuntu-24.04'
         PATH="/home/ubuntu/venv/bin:$PATH"
 
         OS_FLAVOR = 'm1.small'
