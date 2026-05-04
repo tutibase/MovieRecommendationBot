@@ -41,6 +41,7 @@ pipeline {
 
                     if (ipVal) {
                         env.VM_IP = ipVal
+                        echo "✅ env.VM_IP is now set to: [${env.VM_IP}]"
                     } else {
                         error("Failed to extract IP. Value is null or empty.")
                     }
