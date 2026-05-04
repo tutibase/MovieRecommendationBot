@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'poly-agent' }
+    agent any
 
     options {
         // Запрещаем параллельные сборки
@@ -8,12 +8,13 @@ pipeline {
 
     environment {
         STACK_NAME = "movie-bot-poly"
-        HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job/heat/stack.yaml'
+        HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job_heat/heat/stack.yaml'
         OS_IMAGE = 'ununtu-22.04'
+        PATH="$HOME/miniconda3/bin:$PATH"
 
         OS_FLAVOR = 'm1.small'
         SSH_KEY = 'lugov-key-pair'
-        SUBNET = 'd80da048-c188-45a5-80e4-55d914fe58ea'
+        SUBNET = '6a69f855-8a2d-4994-baf0-ed4feedd897b'
     }
 
     stages {
