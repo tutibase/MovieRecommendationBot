@@ -9,7 +9,7 @@ pipeline {
 
         // Infra paths
         STACK_OUTPUTS = 'stack_outputs.json'
-        SSH_KEY = "ssh-private-key"
+        SSH_KEY = "ubuntu-key"
         APP_DIR = "/opt/movie-bot"
 
         COMPOSE_FILE = "MovieRecommendationBot/docker-compose.yml"
@@ -86,7 +86,7 @@ pipeline {
                     withCredentials([
                             file(credentialsId: 'app-env-content', variable: 'APP_ENV_FILE'),
                             sshUserPrivateKey(
-                                    credentialsId: 'ssh-private-key',
+                                    credentialsId: 'ubuntu-key',
                                     keyFileVariable: 'SSH_KEY_FILE',
                                     usernameVariable: 'SSH_USER',
                                     passphraseVariable: ''
