@@ -27,13 +27,20 @@ pipeline {
                         flatten: true
 
                 script {
-                    def outputs = readJSON text: readFile(file: STACK_OUTPUTS, encoding: 'UTF-8')
-                    env.VM_IP = outputs.server_private_ip.output_value
+                    // 1. Выводим содержимое файла как есть
+                    echo "=== FILE CONTENT ==="
+                    def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
+                    echo rawContent
+                    echo "===================="
 
-                    if (!env.VM_IP) {
-                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
-                    }
-                    echo "Target VM IP: ${env.VM_IP}"
+                    // 2. Парсим и выводим поле server_private_ip
+                    def outputs = readJSON text: rawContent
+                    echo "server_private_ip field:"
+                    echo outputs.server_private_ip
+
+                    // 3. Присваиваем значение
+                    env.VM_IP = outputs.server_private_ip.output_value
+                    echo "VM_IP set to: ${env.VM_IP}"
                 }
             }
         }
