@@ -27,24 +27,23 @@ pipeline {
                         flatten: true
 
                 script {
-                    // 1. Читаем файл
                     def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
-
-                    // Выводим содержимое файла (это уже строка, поэтому ошибки не будет)
-                    echo "=== FILE CONTENT ==="
-                    echo rawContent
-                    echo "===================="
-
-                    // 2. Парсим JSON
                     def outputs = readJSON text: rawContent
 
-                    // 3. Выводим поле server_private_ip
-                    // ВАЖНО: добавляем .toString(), чтобы превратить объект в строку для echo
-                    echo "server_private_ip field: " + outputs.server_private_ip.toString()
+                    // Отладка: проверяем тип объекта
+                    def ipObj = outputs.server_private_ip
+                    echo "Type of server_private_ip: ${ipObj.getClass().getName()}"
+                    echo "Keys in server_private_ip: ${ipObj.keySet()}"
 
-                    // 4. Присваиваем IP
-                    env.VM_IP = outputs.server_private_ip.output_value
-                    echo "VM_IP set to: ${env.VM_IP}"
+                    // Явное получение значения
+                    def ipVal = ipObj.get('output_value')
+                    echo "Extracted IP value: '${ipVal}'"
+
+                    if (ipVal) {
+                        env.VM_IP = ipVal
+                    } else {
+                        error("Failed to extract IP. Value is null or empty.")
+                    }
                 }
             }
         }
