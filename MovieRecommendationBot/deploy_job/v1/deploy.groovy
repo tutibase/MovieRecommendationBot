@@ -27,7 +27,7 @@ pipeline {
                         flatten: true
 
                 script {
-                    def outputs = readJSON file: STACK_OUTPUTS
+                    def outputs = readJSON text: readFile(file: STACK_OUTPUTS, encoding: 'UTF-8')
                     env.VM_IP = outputs.server_private_ip.output_value
 
                     if (!env.VM_IP) {
