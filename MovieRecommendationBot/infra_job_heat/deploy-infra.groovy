@@ -16,7 +16,7 @@ pipeline {
 
         OS_FLAVOR = 'm1.small'
         SSH_KEY = 'lugov-key-pair'
-        SUBNET = '6a69f855-8a2d-4994-baf0-ed4feedd897b'
+        SUBNET = 'dff59b0a-33c2-4625-ba8a-82c79da43875'
     }
 
     stages {
