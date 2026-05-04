@@ -28,7 +28,8 @@ pipeline {
 
                 script {
                     def outputs = readJSON file: STACK_OUTPUTS
-                    env.VM_IP = outputs.server_private_ip.output_value
+                    def privateIpJson = readJSON text: outputs.server_private_ip
+                    env.VM_IP = privateIpJson.output_value
 
                     if (!env.VM_IP) {
                         error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
