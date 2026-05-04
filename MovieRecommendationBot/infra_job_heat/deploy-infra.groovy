@@ -27,7 +27,7 @@ pipeline {
                     withCredentials([file(credentialsId: 'openstack-rc-file',
                             variable: 'OPENSTACK_RC')]) {
                         sh '''
-                            set +x  # Не логировать чувствительные данные
+                              # Не логировать чувствительные данные
                             . $OPENSTACK_RC
                             
                             echo "📡 Checking connection to OpenStack..."
