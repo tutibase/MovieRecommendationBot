@@ -30,25 +30,25 @@ pipeline {
                     // Читаем и парсим JSON
                     def outputs = readJSON file: STACK_OUTPUTS
 
-                    // Явно получаем объект сервера
-                    def serverIpObj = outputs['server_private_ip']
+                    // Получаем объект сервера. Используем .get() для надежности с JSONObject
+                    def serverIpObj = outputs.get("server_private_ip")
 
                     echo "DEBUG: Type of server_private_ip: ${serverIpObj.getClass().getName()}"
                     echo "DEBUG: Content of server_private_ip: ${serverIpObj}"
 
-                    if (serverIpObj instanceof java.util.Map) {
-                        // Если это карта, берем output_value
-                        env.VM_IP = serverIpObj['output_value']
-                    } else if (serverIpObj instanceof String) {
-                        // Если вдруг это уже строка (на всякий случай)
-                        env.VM_IP = serverIpObj
-                    } else {
-                        error("Unexpected type for server_private_ip: ${serverIpObj.getClass().getName()}")
+                    def ipValue = null
+
+                    if (serverIpObj) {
+                        // Если это JSONObject или Map, используем .get("output_value")
+                        // Метод .get() универсален и для JSONObject, и для Map
+                        ipValue = serverIpObj.get("output_value")
                     }
+
+                    env.VM_IP = ipValue ? ipValue.toString().trim() : ""
 
                     echo "DEBUG: Extracted VM_IP: '${env.VM_IP}'"
 
-                    if (!env.VM_IP || env.VM_IP.trim().isEmpty()) {
+                    if (!env.VM_IP) {
                         error("Could not extract server_private_ip from ${STACK_OUTPUTS}. Value is empty.")
                     }
 
