@@ -27,18 +27,22 @@ pipeline {
                         flatten: true
 
                 script {
-                    // 1. Выводим содержимое файла как есть
-                    echo "=== FILE CONTENT ==="
+                    // 1. Читаем файл
                     def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
+
+                    // Выводим содержимое файла (это уже строка, поэтому ошибки не будет)
+                    echo "=== FILE CONTENT ==="
                     echo rawContent
                     echo "===================="
 
-                    // 2. Парсим и выводим поле server_private_ip
+                    // 2. Парсим JSON
                     def outputs = readJSON text: rawContent
-                    echo "server_private_ip field:"
-                    echo outputs.server_private_ip
 
-                    // 3. Присваиваем значение
+                    // 3. Выводим поле server_private_ip
+                    // ВАЖНО: добавляем .toString(), чтобы превратить объект в строку для echo
+                    echo "server_private_ip field: " + outputs.server_private_ip.toString()
+
+                    // 4. Присваиваем IP
                     env.VM_IP = outputs.server_private_ip.output_value
                     echo "VM_IP set to: ${env.VM_IP}"
                 }
