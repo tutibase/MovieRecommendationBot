@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'agent'
+    }
 
     options {
         // Запрещаем параллельные сборки
