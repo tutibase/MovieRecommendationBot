@@ -10,7 +10,7 @@ pipeline {
 
         // Infra paths
         STACK_OUTPUTS = 'stack_outputs.json'
-        SSH_KEY = "lugov-key-pair"
+        SSH_KEY = "ssh-private-key"
         APP_DIR = "/opt/movie-bot"
 
         COMPOSE_FILE = "MovieRecommendationBot/docker-compose.yml"
