@@ -21,7 +21,6 @@ pipeline {
 
     stages {
 
-        // Тест аутентификации в OpenStack
         stage('Test OpenStack Connection') {
             steps {
                 script {
@@ -29,14 +28,13 @@ pipeline {
                     withCredentials([file(credentialsId: 'openstack-rc-file',
                             variable: 'OPENSTACK_RC')]) {
                         sh '''
-                              # Не логировать чувствительные данные
                             . $OPENSTACK_RC
                             
-                            echo "📡 Checking connection to OpenStack..."
+                            echo "Checking connection to OpenStack..."
                             openstack token issue -f yaml
                             
                             if [ $? -eq 0 ]; then
-                                echo "✅ Authentication successful!"
+                                echo "Authentication successful!"
                             else
                                 echo " Authentication failed!"
                                 exit 1
@@ -47,7 +45,6 @@ pipeline {
             }
         }
 
-        // Проверка и очистка существующего стека
         stage('Check & Cleanup Existing Stack') {
             steps {
                 script {
@@ -144,7 +141,6 @@ pipeline {
             cleanWs()
         }
 
-        // Обработка падения — удаляем стек, чтобы не осталось "мусора"
         failure {
             echo "Pipeline failed! Cleaning up..."
             withCredentials([file(credentialsId: 'openstack-rc-file',

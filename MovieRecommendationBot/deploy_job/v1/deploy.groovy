@@ -28,13 +28,9 @@ pipeline {
                 script {
                     def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
                     def outputs = readJSON text: rawContent
-
-                    // Отладка: проверяем тип объекта
                     def ipObj = outputs.server_private_ip
-                    // Явное получение значения
                     def ipVal = ipObj.get('output_value')
                     if (ipVal) {
-                        // ВАЖНО: Явно приводим к строке и убираем пробелы
                         String cleanIp = ipVal.toString().trim()
 
                         env.VM_IP = cleanIp
@@ -49,9 +45,8 @@ pipeline {
 
         stage('Copy Files to VM') {
             steps {
-                // Используем withCredentials вместо sshagent
                 withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ubuntu-key', // Убедитесь, что этот ID верный!
+                        credentialsId: 'ubuntu-key',
                         keyFileVariable: 'SSH_KEY_FILE',
                         usernameVariable: 'SSH_USER'
                 )]) {
@@ -71,7 +66,7 @@ pipeline {
                             MovieRecommendationBot/src/main/resources/users_db.sql \\
                             \${SSH_USER}@${env.VM_IP}:/opt/movie-bot/init-db/
                         
-                        echo "✅ Files copied"
+                        echo "Files copied"
                     """
                 }
             }
@@ -128,9 +123,9 @@ pipeline {
                             cd ${APP_DIR}
                             
                             if [ -f .env ]; then
-                                echo '✅ .env file exists'
+                                echo '.env file exists'
                             else
-                                echo '❌ ERROR: .env file not found!'
+                                echo 'ERROR: .env file not found!'
                                 exit 1
                             fi
                             
@@ -141,62 +136,6 @@ pipeline {
                             docker compose ps
                         "
                 """
-                    }
-                }
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    sshagent([SSH_KEY]) {
-                        sh '''
-                    echo "Waiting for app to be healthy..."
-                    
-                    ssh -o StrictHostKeyChecking=no ubuntu@${VM_IP} '
-                        set +e 
-                        
-                        echo "  Checking containers..."
-                        CONTAINER_NAME="movie-bot-poly"
-                        
-                        for i in {1..60}; do 
-                            STATUS=$(docker compose ps -q app 2>/dev/null | head -1 | xargs -r docker inspect --format="{{.State.Status}}" 2>/dev/null | tr -d "[:space:]")
-                            
-                            if [ "$STATUS" = "running" ]; then
-                                echo "  ✅ App container is running"
-                                break
-                            fi
-                           
-                            echo "    Waiting for app container... ($i/60) - status: ${STATUS:-unknown}"
-                            sleep 5
-                        done
-                        
-                        if [ "$STATUS" != "running" ]; then
-                            echo "  ❌ App container failed to start (status: $STATUS)"
-                            echo "  === Container status ==="
-                            docker compose ps
-                            echo "  === Last 30 app logs ==="
-                            docker compose logs app --tail=30 || true
-                            exit 1
-                        fi
-                        
-                        echo "  Checking logs for critical errors..."
-                        if docker compose logs app --tail=100 2>&1 | grep -qiE "fatal|exception|authentication failed"; then
-                            echo "  ⚠️ Warning: critical errors in logs"
-                            docker compose logs app --tail=30 || true
-                            exit 1
-                        else
-                            echo "  ✅ No critical errors detected"
-                        fi
-                        
-                        echo "  Checking DB..."
-                        if docker compose exec -T db pg_isready -U users_db -d users_db 2>/dev/null | grep -q "accepting"; then
-                            echo "  ✅ Database is ready"
-                        else
-                            echo "  ⚠️ Database may not be ready yet"
-                        fi
-                    '
-                '''
                     }
                 }
             }
