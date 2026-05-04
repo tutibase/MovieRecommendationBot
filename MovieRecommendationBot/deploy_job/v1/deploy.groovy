@@ -192,16 +192,16 @@ pipeline {
         success {
             echo "✅ App deployed successfully!"
             echo "Telegram bot should be running"
-            echo "App URL: http://${VM_IP}:8110 (from internal network)"
-            echo " Logs: ssh ubuntu@${VM_IP} 'docker compose logs -f app'"
-            echo " DB logs: ssh ubuntu@${VM_IP} 'docker compose logs -f db'"
+            echo "App URL: http://${env.VM_IP}:8110 (from internal network)"
+            echo " Logs: ssh ubuntu@${env.VM_IP} 'docker compose logs -f app'"
+            echo " DB logs: ssh ubuntu@${env.VM_IP} 'docker compose logs -f db'"
         }
         failure {
             echo "❌ Deployment failed!"
             echo " Debug commands:"
-            echo "  ssh ubuntu@${VM_IP} 'docker compose ps'"
-            echo "  ssh ubuntu@${VM_IP} 'docker compose logs app --tail=50'"
-            echo "  ssh ubuntu@${VM_IP} 'docker compose logs db --tail=50'"
+            echo "  ssh ubuntu@${env.VM_IP} 'docker compose ps'"
+            echo "  ssh ubuntu@${env.VM_IP} 'docker compose logs app --tail=50'"
+            echo "  ssh ubuntu@${env.VM_IP} 'docker compose logs db --tail=50'"
         }
         always {
             cleanWs()
