@@ -51,7 +51,7 @@ pipeline {
             steps {
                 // Используем withCredentials вместо sshagent
                 withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ssh-private-key', // Убедитесь, что этот ID верный!
+                        credentialsId: 'ubuntu-key', // Убедитесь, что этот ID верный!
                         keyFileVariable: 'SSH_KEY_FILE',
                         usernameVariable: 'SSH_USER'
                 )]) {
