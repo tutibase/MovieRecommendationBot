@@ -12,7 +12,7 @@ pipeline {
         STACK_NAME = "movie-bot-poly"
         HEAT_TEMPLATE = 'MovieRecommendationBot/infra_job_heat/heat/stack.yaml'
         OS_IMAGE = 'ununtu-22.04'
-        PATH="$HOME/miniconda3/bin:$PATH"
+        PATH="/home/ubuntu/venv/bin:$PATH"
 
         OS_FLAVOR = 'm1.small'
         SSH_KEY = 'lugov-key-pair'
