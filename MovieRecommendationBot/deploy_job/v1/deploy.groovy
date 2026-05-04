@@ -27,13 +27,31 @@ pipeline {
                         flatten: true
 
                 script {
+                    // Читаем и парсим JSON
                     def outputs = readJSON file: STACK_OUTPUTS
-                    def privateIpJson = readJSON text: outputs.server_private_ip
-                    env.VM_IP = privateIpJson.output_value
 
-                    if (!env.VM_IP) {
-                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
+                    // Явно получаем объект сервера
+                    def serverIpObj = outputs['server_private_ip']
+
+                    echo "DEBUG: Type of server_private_ip: ${serverIpObj.getClass().getName()}"
+                    echo "DEBUG: Content of server_private_ip: ${serverIpObj}"
+
+                    if (serverIpObj instanceof java.util.Map) {
+                        // Если это карта, берем output_value
+                        env.VM_IP = serverIpObj['output_value']
+                    } else if (serverIpObj instanceof String) {
+                        // Если вдруг это уже строка (на всякий случай)
+                        env.VM_IP = serverIpObj
+                    } else {
+                        error("Unexpected type for server_private_ip: ${serverIpObj.getClass().getName()}")
                     }
+
+                    echo "DEBUG: Extracted VM_IP: '${env.VM_IP}'"
+
+                    if (!env.VM_IP || env.VM_IP.trim().isEmpty()) {
+                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}. Value is empty.")
+                    }
+
                     echo "Target VM IP: ${env.VM_IP}"
                 }
             }
