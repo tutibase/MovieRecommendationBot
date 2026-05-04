@@ -29,22 +29,14 @@ pipeline {
                     def rawContent = readFile file: STACK_OUTPUTS, encoding: 'UTF-8'
                     def outputs = readJSON text: rawContent
 
-                    // Отладка: проверяем тип объекта
-                    def ipObj = outputs.server_private_ip
-                    echo "Type of server_private_ip: ${ipObj.getClass().getName()}"
-                    echo "Keys in server_private_ip: ${ipObj.keySet()}"
-
                     // Явное получение значения
                     def ipVal = ipObj.get('output_value')
-                    echo "Extracted IP value: '${ipVal}'"
-
                     if (ipVal) {
-                        // ВАЖНО: Явно приводим к строке и убираем пробелы
                         String cleanIp = ipVal.toString().trim()
 
                         env.VM_IP = cleanIp
 
-                        echo "✅ env.VM_IP set to string: [${env.VM_IP}]"
+                        echo "env.VM_IP set to string: [${env.VM_IP}]"
                     } else {
                         error("Failed to extract IP.")
                     }
@@ -54,24 +46,30 @@ pipeline {
 
         stage('Copy Files to VM') {
             steps {
-                sshagent([SSH_KEY]) {
+                // Используем withCredentials вместо sshagent
+                withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ssh-private-key', // Убедитесь, что этот ID верный!
+                        keyFileVariable: 'SSH_KEY_FILE',
+                        usernameVariable: 'SSH_USER'
+                )]) {
                     sh """
-                echo "Copying files to ${env.VM_IP}..."
-                
-                ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
-                    mkdir -p /opt/movie-bot/init-db
-                "
-                
-                scp -o StrictHostKeyChecking=no \\
-                    MovieRecommendationBot/docker-compose.yml \\
-                    ubuntu@${env.VM_IP}:/opt/movie-bot/
-                
-                scp -o StrictHostKeyChecking=no \\
-                    MovieRecommendationBot/src/main/resources/users_db.sql \\
-                    ubuntu@${env.VM_IP}:/opt/movie-bot/init-db/
-                
-                echo "✅ Files copied"
-            """
+                        echo "Copying files to ${env.VM_IP}..."
+                        
+                        # Создаем директорию
+                        ssh -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \${SSH_USER}@${env.VM_IP} "mkdir -p /opt/movie-bot/init-db"
+                        
+                        # Копируем docker-compose.yml
+                        scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
+                            MovieRecommendationBot/docker-compose.yml \\
+                            \${SSH_USER}@${env.VM_IP}:/opt/movie-bot/
+                        
+                        # Копируем SQL файл
+                        scp -i \${SSH_KEY_FILE} -o StrictHostKeyChecking=no \\
+                            MovieRecommendationBot/src/main/resources/users_db.sql \\
+                            \${SSH_USER}@${env.VM_IP}:/opt/movie-bot/init-db/
+                        
+                        echo "✅ Files copied"
+                    """
                 }
             }
         }
