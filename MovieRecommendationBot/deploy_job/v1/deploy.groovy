@@ -43,7 +43,7 @@ pipeline {
                         // ВАЖНО: Явно приводим к строке и убираем пробелы
                         String cleanIp = ipVal.toString().trim()
 
-                        env.VM_IP = cleanId
+                        env.VM_IP = cleanIp
 
                         echo "✅ env.VM_IP set to string: [${env.VM_IP}]"
                     } else {
