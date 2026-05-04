@@ -40,10 +40,14 @@ pipeline {
                     echo "Extracted IP value: '${ipVal}'"
 
                     if (ipVal) {
-                        env.VM_IP = ipVal
-                        echo "✅ env.VM_IP is now set to: [${env.VM_IP}]"
+                        // ВАЖНО: Явно приводим к строке и убираем пробелы
+                        String cleanIp = ipVal.toString().trim()
+
+                        env.VM_IP = cleanId
+
+                        echo "✅ env.VM_IP set to string: [${env.VM_IP}]"
                     } else {
-                        error("Failed to extract IP. Value is null or empty.")
+                        error("Failed to extract IP.")
                     }
                 }
             }
