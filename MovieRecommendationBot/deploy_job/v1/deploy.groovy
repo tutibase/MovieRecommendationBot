@@ -28,24 +28,11 @@ pipeline {
 
                 script {
                     def outputs = readJSON file: STACK_OUTPUTS
-
-                    // 1. Получаем вложенный объект как JSONObject
-                    def ipObj = outputs.getJSONObject("server_private_ip")
-
-                    echo "DEBUG: IP Object type: ${ipObj.getClass().getName()}"
-
-                    // 2. Извлекаем строковое значение напрямую методом getString
-                    // Это самый надежный способ для net.sf.json.JSONObject в Jenkins
-                    String ipValue = ipObj.getString("output_value")
-
-                    env.VM_IP = ipValue ? ipValue.trim() : ""
-
-                    echo "DEBUG: Final VM_IP: '${env.VM_IP}'"
+                    env.VM_IP = outputs.server_private_ip.output_value
 
                     if (!env.VM_IP) {
-                        error("Could not extract server_private_ip. Value is empty.")
+                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
                     }
-
                     echo "Target VM IP: ${env.VM_IP}"
                 }
             }
