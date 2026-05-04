@@ -1,10 +1,11 @@
 pipeline {
-    agent { label 'poly-agent' }
+    agent { label 'agent' }
 
     environment {
         // App config
         DOCKER_IMAGE = "polyalugovenko/movie-recommendation-bot"
         IMAGE_TAG = "latest"
+        PATH="/home/ubuntu/venv/bin:$PATH"
 
         // Infra paths
         STACK_OUTPUTS = 'stack_outputs.json'
@@ -18,7 +19,7 @@ pipeline {
     stages {
         stage('Get Infrastructure Info') {
             steps {
-                copyArtifacts projectName: 'infra',
+                copyArtifacts projectName: 'infra_heat',
                         selector: lastSuccessful(),
                         filter: STACK_OUTPUTS,
                         target: '.',
@@ -30,9 +31,9 @@ pipeline {
                     env.VM_IP = privateIpJson.output_value
 
                     if (!env.VM_IP) {
-                        error("❌ Could not extract server_private_ip from ${STACK_OUTPUTS}")
+                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}")
                     }
-                    echo "🌐 Target VM IP: ${env.VM_IP}"
+                    echo "Target VM IP: ${env.VM_IP}"
                 }
             }
         }
@@ -41,7 +42,7 @@ pipeline {
             steps {
                 sshagent([SSH_KEY]) {
                     sh """
-                echo "📁 Copying files to ${env.VM_IP}..."
+                echo "Copying files to ${env.VM_IP}..."
                 
                 ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
                     mkdir -p /opt/movie-bot/init-db
@@ -63,56 +64,67 @@ pipeline {
 
         stage('Deploy Application') {
             steps {
-                withCredentials([
-                        string(credentialsId: 'telegram-bot-token', variable: 'BOT_TOKEN'),
-                        string(credentialsId: 'POSTGRES_DB_PASSWORD', variable: 'POSTGRES_DB_PASSWORD'),
-                        string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
-                        string(credentialsId: 'api-key', variable: 'API_KEY')
-                ]) {
-                    script {
-                        // 🔐 Минимальная отладка пароля
-                        echo "🔐 POSTGRES_DB_PASSWORD: length=${POSTGRES_DB_PASSWORD?.length() ?: 0}"
-                    }
-                    sshagent([SSH_KEY]) {
+                script {
+                    def deployUser = env.SSH_USER ?: 'ubuntu'
+                    def deployHost = env.VM_IP
+
+                    withCredentials([
+                            file(credentialsId: 'app-env-content', variable: 'APP_ENV_FILE'),
+                            sshUserPrivateKey(
+                                    credentialsId: 'ssh-private-key',
+                                    keyFileVariable: 'SSH_KEY_FILE',
+                                    usernameVariable: 'SSH_USER',
+                                    passphraseVariable: ''
+                            )
+                    ]) {
                         sh """
-                    echo "Deploying to ${env.VM_IP}..."
+                    echo "Deploying to ${deployHost}..."
                     
-                    ssh -o StrictHostKeyChecking=no ubuntu@${env.VM_IP} "
-                        cd ${APP_DIR}
-                        
-                        echo 'Creating .env file...'
-                        printf '%s\\n' \\
-                            'DB_NAME=users_db' \\
-                            'DB_USERNAME=users_db' \\
-                            'POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}' \\
-                            'DB_URL=jdbc:postgresql://db:5432/users_db' \\
-                            'BOT_TOKEN=${BOT_TOKEN}' \\
-                            'BOT_USERNAME=Poly_MovieRecommendationBot' \\
-                            'ADMIN_PASSWORD=${ADMIN_PASSWORD}' \\
-                            'API_KEY=${API_KEY}' \\
-                            'HTTP_PORT=8110' \\
-                            'HTTP_HOST=0.0.0.0' \\
-                            > .env
-                        
-                        # 🔍 Проверка, что .env создался
-                        echo 'Verifying .env...'
-                        grep -c 'POSTGRES_DB_PASSWORD' .env && echo '✅ POSTGRES_DB_PASSWORD in .env'
-                        
-                        echo 'Pulling images...'
-                        docker compose pull
-                        
-                        echo 'Stopping old containers...'
-                        docker compose down || true
-                        
-                        echo 'Starting containers...'
-                        docker compose up -d --force-recreate
-                        
-                        echo 'Waiting for services...'
-                        sleep 15
-                        
-                        echo 'Checking status...'
-                        docker compose ps
-                    "
+                    ssh -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=10 \\
+                        ${deployUser}@${deployHost} "
+                            rm -f ${APP_DIR}/.env
+                        "
+                    
+                    # Копируем новый .env файл
+                    echo "Copying .env file..."
+                    scp -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=30 \\
+                        \"\${APP_ENV_FILE}\" \\
+                        ${deployUser}@${deployHost}:${APP_DIR}/.env
+                    
+                    # Копируем docker-compose.yml
+                    if [ -f "${COMPOSE_FILE}" ]; then
+                        scp -i \${SSH_KEY_FILE} \\
+                            -o StrictHostKeyChecking=no \\
+                            -o ConnectTimeout=30 \\
+                            ${COMPOSE_FILE} \\
+                            ${deployUser}@${deployHost}:${APP_DIR}/
+                    fi
+                    
+                    # Запускаем приложение
+                    echo "Starting application..."
+                    ssh -i \${SSH_KEY_FILE} \\
+                        -o StrictHostKeyChecking=no \\
+                        -o ConnectTimeout=10 \\
+                        ${deployUser}@${deployHost} "
+                            cd ${APP_DIR}
+                            
+                            if [ -f .env ]; then
+                                echo '✅ .env file exists'
+                            else
+                                echo '❌ ERROR: .env file not found!'
+                                exit 1
+                            fi
+                            
+                            docker compose pull
+                            docker compose down || true
+                            docker compose up -d --force-recreate
+                            sleep 15
+                            docker compose ps
+                        "
                 """
                     }
                 }
