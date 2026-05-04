@@ -27,29 +27,37 @@ pipeline {
                         flatten: true
 
                 script {
-                    // Читаем и парсим JSON
-                    def outputs = readJSON file: STACK_OUTPUTS
+                    // 1. Читаем файл
+                    def rawOutputs = readJSON file: STACK_OUTPUTS
 
-                    // Получаем объект сервера. Используем .get() для надежности с JSONObject
-                    def serverIpObj = outputs.get("server_private_ip")
+                    // 2. Принудительно приводим JSONObject к стандартному Map<String, Object>
+                    // Это решает проблемы с доступом к полям внутри CPS-песочницы Jenkins
+                    def outputs = rawOutputs.toMap()
 
-                    echo "DEBUG: Type of server_private_ip: ${serverIpObj.getClass().getName()}"
-                    echo "DEBUG: Content of server_private_ip: ${serverIpObj}"
+                    echo "DEBUG: Type after conversion: ${outputs.getClass().getName()}"
+
+                    // 3. Получаем объект IP
+                    def ipObj = outputs["server_private_ip"]
+
+                    echo "DEBUG: IP Object type: ${ipObj ? ipObj.getClass().getName() : 'null'}"
+                    echo "DEBUG: IP Object content: ${ipObj}"
 
                     def ipValue = null
 
-                    if (serverIpObj) {
-                        // Если это JSONObject или Map, используем .get("output_value")
-                        // Метод .get() универсален и для JSONObject, и для Map
-                        ipValue = serverIpObj.get("output_value")
+                    if (ipObj instanceof Map) {
+                        // Если это Map, берем значение по ключу
+                        ipValue = ipObj["output_value"]
+                    } else if (ipObj instanceof String) {
+                        // На случай, если структура изменится и там будет сразу строка
+                        ipValue = ipObj
                     }
 
                     env.VM_IP = ipValue ? ipValue.toString().trim() : ""
 
-                    echo "DEBUG: Extracted VM_IP: '${env.VM_IP}'"
+                    echo "DEBUG: Final VM_IP: '${env.VM_IP}'"
 
                     if (!env.VM_IP) {
-                        error("Could not extract server_private_ip from ${STACK_OUTPUTS}. Value is empty.")
+                        error("Could not extract server_private_ip. Check DEBUG logs.")
                     }
 
                     echo "Target VM IP: ${env.VM_IP}"
